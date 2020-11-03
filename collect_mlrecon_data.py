@@ -2,34 +2,37 @@
 
 # author: Michael A. Perlin (github.com/perlinm)
 
-import os, numpy, itertools, qiskit
+import os, numpy, qiskit
 
 import circuit_cutter
 import mlrecon_methods as ml
 
-seed = 0
+data_dir = "./mlrecon_data/"
+trials = 100 # number of random circuit variants to average over
+
+# fragment numbers to use
+frag_nums = [ 2, 3, 4 ]
+
+# number of qubits and shots for fixed-shot trials
+qubit_nums = range(6,21)
+log10_shots_default = 6
+
+# number of qubits and shots for fixed-qubit trials
+log10_shot_nums = numpy.linspace(4,8,9)
+qubit_num_default = 12
+
+# general options : CHANGE AT YOUR OWN PERIL
+seed = 0 # random number seed
 simulation_backend = "qasm_simulator"
 monitor_jobs = False
-data_dir = "./mlrecon_data/"
-
 circuit_type = "clustered"
 layers = 1
-
-shots = 10**6
-trials = 100
-
-qubit_nums = list(range(6,21))
-frag_nums = list(range(2,5))
 
 if not os.path.isdir(data_dir):
     os.makedirs(data_dir)
 
 ##########################################################################################
-# build and cut a circuit
-##########################################################################################
-
-def get_filename(qubit_num, frag_num):
-    return data_dir + f"{circuit_type}_L{layers}_F{frag_num}_Q{qubit_num}.txt"
+# data collection methods
 
 # number of fragment variants for given numbers of incident measurement / preparation cuts
 def variants(cuts):
@@ -47,14 +50,14 @@ def fidelity(dist, actual_dist):
                     for bits, prob in dist.items() )**2
     return fidelity.real if fidelity.imag == 0 else fidelity
 
-for qubit_num, frag_num in itertools.product(qubit_nums, frag_nums):
-    print(f"qubit_num, frag_num: {qubit_num}, {frag_num}")
+def collect_data(qubit_num, frag_num, log10_shots):
 
     if qubit_num < 2*frag_num:
         print("skipping because qubit_num < 2 * frag_num")
-        continue
+        return
 
-    filename = get_filename(qubit_num, frag_num)
+    shots = int(10**log10_shots)
+    filename = data_dir + f"{circuit_type}_Q{qubit_num}_F{frag_num}_S{log10_shots:.1f}.txt"
 
     # determine which trial to start on
     trial_start = 0
@@ -115,3 +118,18 @@ for qubit_num, frag_num in itertools.product(qubit_nums, frag_nums):
         likely_fidelity = fidelity(likely_recombined_dist, actual_dist)
         with open(filename, "a") as file:
             file.write(f"{full_circuit_fidelity} {direct_fidelity} {likely_fidelity}\n")
+
+##########################################################################################
+# collect data
+
+for frag_num in frag_nums:
+
+    # simulate circuits with different qubit numbers
+    for qubit_num in qubit_nums:
+        print(f"frag_num : {frag_num}, qubit_num : {qubit_num}")
+        collect_data(qubit_num, frag_num, log10_shots_default)
+
+    # simulate circuits with different shot numbers
+    for log10_shots in log10_shot_nums:
+        print(f"frag_num: {frag_num}, log10_shots : {log10_shots}")
+        collect_data(qubit_num_default, frag_num, log10_shots)
