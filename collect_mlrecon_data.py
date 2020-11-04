@@ -57,7 +57,7 @@ def collect_data(qubit_num, frag_num, log10_shots):
         return
 
     shots = int(10**log10_shots)
-    filename = data_dir + f"{circuit_type}_Q{qubit_num}_F{frag_num}_S{log10_shots:.1f}.txt"
+    filename = data_dir + f"{circuit_type}_Q{qubit_num:02d}_F{frag_num}_S{log10_shots:.1f}.txt"
 
     # determine which trial to start on
     trial_start = 0

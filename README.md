@@ -24,6 +24,6 @@ The contents of this repository are as follows (all codes written in Python 3):
   2. the [original](https://journals.aps.org/prl/accepted/cf075YabH641a287f098406380a7b05df8764bce0) circuit cutting method (also on the [arXiv](https://arxiv.org/abs/1904.00102))
   3. our circuit cutting method (maximum likelihood fragment tomography).
 * `collect_mlrecon_data.py`: this script simulates circuits with varying qubit, fragment, and shot numbers, and computes the fidelity with which these circuits' outputs can be estimated using the same methods as in the demo script (`mlrecon_demo.py`).  This is the script that was used to collect all simulation data for our paper.
-* `plot_mlrecon_data.py`: this script plots the data collected by `collect_mlrecon_data.py` to make the last figure in our paper.
+* `plot_mlrecon_data.py`: this script plots the data collected by `collect_mlrecon_data.py` to make the simulation figures in our paper.
 
 The primary dependencies of this repository are [Qiskit](https://qiskit.org/) v0.12.0, [TensorNetwork](https://github.com/google/TensorNetwork) v0.4.1, as well as some standard Python packages such as NumPy, SciPy, and NetworkX.  The dependency on a (very) outdated version of Qiskit (v0.12.0) is largely due to breaking changes in how Qiskit represents quantum circuits in the backend, which is central to the methods in `circuit_cutting.py`.  If there is demand, I may update these codes for compatibility with newer versions of Qiskit in the future.
