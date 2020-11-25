@@ -261,7 +261,7 @@ def target_labels_to_matrix(targets):
 def direct_fragment_model(tomography_data, discard_poor_data = False, rank_cutoff = 1e-8):
     # if we were given a list of data sets, build a model for each data set in the list
     if type(tomography_data) is list:
-        return [ direct_fragment_model(data_set, rank_cutoff)
+        return [ direct_fragment_model(data_set, discard_poor_data, rank_cutoff)
                  for data_set in tomography_data ]
 
     # build a block-diagonal choi matrix from experiment data,

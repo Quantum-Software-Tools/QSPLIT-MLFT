@@ -7,9 +7,6 @@ import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 
-orientation = "horiz" if len(sys.argv) < 2 else sys.argv[1]
-assert(orientation in ["horiz","vert"])
-
 max_width = 8.6/2.54 # maximum width of single-column figure
 data_dir = "./mlrecon_data/"
 
@@ -26,16 +23,10 @@ params = { "font.size" : 9,
 plt.rcParams.update(params)
 
 def get_figure_axes(frag_nums):
-    if orientation == "horiz":
-        fig_rows = 2
-        fig_cols = frag_nums
-        fig_width = 1.6 * fig_cols
-        fig_height = 3.4
-    else: # if orientation == "vert"
-        fig_rows = frag_nums
-        fig_cols = 2
-        fig_width = max_width
-        fig_height = 1.5 * fig_rows
+    fig_rows = 2
+    fig_cols = frag_nums
+    fig_width = 1.6 * fig_cols
+    fig_height = 3.3
     return plt.subplots(fig_rows, fig_cols, sharex = True, sharey = True,
                         figsize = (fig_width, fig_height))
 
@@ -73,8 +64,10 @@ def all_values(info_key, **selection_args):
 ##########################################################################################
 # make fidelity plots with variable qubit numbers
 
+log10_shots = 6
+
 circuit_info = { "circuit" : circuit_type,
-                 "log10_shots" : "S6.0" }
+                 "log10_shots" : f"S{log10_shots:.1f}" }
 circuit_frags = all_values("frags", **circuit_info)
 
 figure, axes = get_figure_axes(len(circuit_frags))
@@ -106,14 +99,8 @@ for frag_idx, frags in enumerate(circuit_frags):
         fidelity_std = np.std(fidelities, axis = 0)
         plot_args = dict( color = color, label = label,
                           fillstyle = "none", markersize = 4 )
-        if orientation == "horiz":
-            ax_avg = axes[0,frag_idx]
-            ax_std = axes[1,frag_idx]
-        else: # if orientation == "vert"
-            ax_avg = axes[frag_idx,0]
-            ax_std = axes[frag_idx,1]
-        ax_avg.semilogy(qubit_nums, fidelity_avg, marker, **plot_args)
-        ax_std.semilogy(qubit_nums, fidelity_std, marker, **plot_args)
+        axes[0,frag_idx].semilogy(qubit_nums, fidelity_avg, marker, **plot_args)
+        axes[1,frag_idx].semilogy(qubit_nums, fidelity_std, marker, **plot_args)
 
 # fix axis ticks
 for idx in np.ndindex(axes.shape):
@@ -121,20 +108,10 @@ for idx in np.ndindex(axes.shape):
     axes[idx].tick_params(right = True)
 
 # set titles and axis labels
-if orientation == "horiz":
-    axes[0,0].set_ylabel(r"$1-f$")
-    axes[1,0].set_ylabel(r"$\sigma_f$")
-
-    for frag_idx, frags in enumerate(circuit_frags):
-        axes[0,frag_idx].set_title(f"$F={frags[1:]}$", pad = 8)
-
-else: # if orientation == "vert"
-    axes[0,0].set_title(r"$1-f$")
-    axes[0,1].set_title(r"$\sigma_f$")
-
-    for frag_idx, frags in enumerate(circuit_frags):
-        axes[frag_idx,1].yaxis.set_label_position("right")
-        axes[frag_idx,1].set_ylabel(f"$F={frags[1:]}$", labelpad = 8)
+axes[0,0].set_ylabel(r"$1-f$")
+axes[1,0].set_ylabel(r"$\sigma_f$")
+for frag_idx, frags in enumerate(circuit_frags):
+    axes[0,frag_idx].set_title(f"$F={frags[1:]}$", pad = 8)
 
 for axis in axes[-1,:]:
     axis.set_xlabel("$Q$")
@@ -150,19 +127,17 @@ major_tick_values, minor_tick_values = get_log_ticks(axes[0,0].get_ylim())
 axes[0,0].yaxis.set_ticks(major_tick_values)
 axes[0,0].yaxis.set_ticks(minor_tick_values, minor = True)
 
-if orientation == "horiz":
-    axes[1,0].legend(loc = "best")
-else: # if orientation == "vert"
-    axes[0,1].legend(loc = "best")
-
+axes[1,0].legend(loc = "best")
 plt.tight_layout(pad = 0.2)
-plt.savefig(f"fidelities_qubits_{orientation}.pdf", bbox_inches = "tight")
+plt.savefig(f"fidelities_qubits.pdf", bbox_inches = "tight")
 
 ##########################################################################################
 # make fidelity plots with variable shot numbers
 
+qubits = 16
+
 circuit_info = { "circuit" : circuit_type,
-                 "qubits" : "Q12" }
+                 "qubits" : f"Q{qubits}" }
 circuit_frags = all_values("frags", **circuit_info)
 
 figure, axes = get_figure_axes(len(circuit_frags))
@@ -189,14 +164,8 @@ for frag_idx, frags in enumerate(circuit_frags):
         fidelity_std = np.std(fidelities, axis = 0)
         plot_args = dict( color = color, label = label,
                           fillstyle = "none", markersize = 4 )
-        if orientation == "horiz":
-            ax_avg = axes[0,frag_idx]
-            ax_std = axes[1,frag_idx]
-        else: # if orientation == "vert"
-            ax_avg = axes[frag_idx,0]
-            ax_std = axes[frag_idx,1]
-        ax_avg.loglog(shot_nums, fidelity_avg, marker, **plot_args)
-        ax_std.loglog(shot_nums, fidelity_std, marker, **plot_args)
+        axes[0,frag_idx].loglog(shot_nums, fidelity_avg, marker, **plot_args)
+        axes[1,frag_idx].loglog(shot_nums, fidelity_std, marker, **plot_args)
 
 # fix axis ticks
 for idx in np.ndindex(axes.shape):
@@ -204,20 +173,10 @@ for idx in np.ndindex(axes.shape):
     axes[idx].tick_params(right = True)
 
 # set titles and axis labels
-if orientation == "horiz":
-    axes[0,0].set_ylabel(r"$1-f$")
-    axes[1,0].set_ylabel(r"$\sigma_f$")
-
-    for frag_idx, frags in enumerate(circuit_frags):
-        axes[0,frag_idx].set_title(f"$F={frags[1:]}$", pad = 8)
-
-else: # if orientation == "vert"
-    axes[0,0].set_title(r"$1-f$")
-    axes[0,1].set_title(r"$\sigma_f$")
-
-    for frag_idx, frags in enumerate(circuit_frags):
-        axes[frag_idx,1].yaxis.set_label_position("right")
-        axes[frag_idx,1].set_ylabel(f"$F={frags[1:]}$", labelpad = 8)
+axes[0,0].set_ylabel(r"$1-f$")
+axes[1,0].set_ylabel(r"$\sigma_f$")
+for frag_idx, frags in enumerate(circuit_frags):
+    axes[0,frag_idx].set_title(f"$F={frags[1:]}$", pad = 8)
 
 for axis in axes[-1,:]:
     axis.set_xlabel("$S$")
@@ -232,10 +191,6 @@ major_tick_values, minor_tick_values = get_log_ticks(axes[0,0].get_ylim())
 axes[0,0].yaxis.set_ticks(major_tick_values)
 axes[0,0].yaxis.set_ticks(minor_tick_values, minor = True)
 
-if orientation == "horiz":
-    axes[0,0].legend(loc = "best")
-else: # if orientation == "vert"
-    axes[2,0].legend(loc = "best")
-
+axes[0,0].legend(loc = "best")
 plt.tight_layout(pad = 0.2)
-plt.savefig(f"fidelities_shots_{orientation}.pdf", bbox_inches = "tight")
+plt.savefig(f"fidelities_shots.pdf", bbox_inches = "tight")

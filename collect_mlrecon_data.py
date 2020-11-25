@@ -18,8 +18,8 @@ qubit_nums = range(6,21)
 log10_shots_default = 6
 
 # number of qubits and shots for fixed-qubit trials
-log10_shot_nums = numpy.linspace(4,8,9)
-qubit_num_default = 12
+log10_shot_nums = numpy.linspace(4.5,7.5,7)
+qubit_num_default = 16
 
 # general options : CHANGE AT YOUR OWN PERIL
 seed = 0 # random number seed
