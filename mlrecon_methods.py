@@ -13,8 +13,7 @@ def get_statevector(circuit):
 
 # run circuits and get the resulting probability distributions
 def run_circuits(circuits, shots, backend = "qasm_simulator",
-                 max_hardware_shots = 8192, max_simulator_shots = 10**6,
-                 monitor_jobs = True):
+                 max_hardware_shots = 8192, monitor_jobs = False):
 
     # get results from a single run
     def _results(shots, backend):
@@ -25,17 +24,17 @@ def run_circuits(circuits, shots, backend = "qasm_simulator",
     if type(backend) is str:
         # if the backend is a string, simulate locally with a qiskit Aer backend
         backend = qiskit.Aer.get_backend(backend)
-        max_shots = max_simulator_shots
+        backend._configuration.max_shots = shots
+        return [ _results(shots, backend) ]
+
     else:
         # otherwise, we're presumably running on hardware,
         #   so only run as many shots at a time as we're allowed
-        max_shots = max_hardware_shots
-
-    max_shot_repeats = shots // max_shots
-    shot_remainder = shots % max_shots
-    shot_sequence = [ max_shots ] * max_shot_repeats \
-                  + [ shot_remainder ] * ( shot_remainder > 0 )
-    return [ _results(shots, backend) for shots in shot_sequence ]
+        max_shot_repeats = shots // max_hardware_shots
+        shot_remainder = shots % max_hardware_shots
+        shot_sequence = [ max_hardware_shots ] * max_shot_repeats \
+                      + [ shot_remainder ] * ( shot_remainder > 0 )
+        return [ _results(shots, backend) for shots in shot_sequence ]
 
 # convert a statevector into a density operator
 def to_projector(vector):
@@ -108,7 +107,7 @@ def identify_frag_targets(wire_path_map):
 # perform partial quantum tomography on a circuit and return the corresponding raw data
 def partial_quantum_tomography(circuit, prep_qubits, meas_qubits, shots,
                                tomography_backend = "qasm_simulator", prep_basis = "SIC",
-                               monitor_jobs = True):
+                               monitor_jobs = False):
     if prep_qubits == None: perp_qubits = []
     if meas_qubits == None: meas_qubits = []
     if prep_qubits == "all": prep_qubits = circuit.qubits
@@ -182,9 +181,9 @@ def organize_tomography_data(raw_data_collection, prep_qubits, meas_qubits):
     organized_data = {}
     for raw_data in raw_data_collection:
         for result in raw_data.results:
-            full_prep_label, full_meas_label = ast.literal_eval(result.header.name)
-            full_name = str( ( full_prep_label, full_meas_label ) )
-            meas_counts = raw_data.get_counts(full_name)
+            name = result.header.name
+            meas_counts = raw_data.get_counts(name)
+            full_prep_label, full_meas_label = ast.literal_eval(name)
 
             prep_label = tuple( full_prep_label[qubit] for qubit in prep_qubits )
             meas_label = tuple( full_meas_label[qubit] for qubit in meas_qubits )
@@ -204,7 +203,7 @@ def organize_tomography_data(raw_data_collection, prep_qubits, meas_qubits):
 # perform process tomography on all fragments and return the corresponding data
 def collect_fragment_data(fragments, wire_path_map, shots,
                           tomography_backend = "qasm_simulator", prep_basis = "SIC",
-                          monitor_jobs = True):
+                          monitor_jobs = False):
     frag_targets = identify_frag_targets(wire_path_map)
     frag_raw_data = [ partial_quantum_tomography(fragment,
                                                  frag_targets[idx].get("prep"),

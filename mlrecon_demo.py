@@ -61,8 +61,7 @@ actual_dist = { "".join(bits) : abs(amp)**2
                 if amp != 0 }
 
 # get a simulated probability distribution for the full circuit
-circuit.cregs.append(qiskit.ClassicalRegister(qubits))
-circuit.measure(range(qubits),range(qubits))
+circuit.measure_all()
 full_circuit_result = ml.run_circuits(circuit, shots, backend = simulation_backend)
 full_circuit_dist = {}
 for part in full_circuit_result:
