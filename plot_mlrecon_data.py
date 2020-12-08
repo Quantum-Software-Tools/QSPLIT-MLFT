@@ -14,7 +14,7 @@ qubit_min = 8
 qubit_max = 20
 
 labels = [ "full", "direct", "MLFT" ]
-colors = [ "#1f77b4", "#ff7f0e", "#2ca02c" ]
+colors = [ "tab:blue", "tab:orange", "tab:green" ]
 markers = [ "o", "s", "^" ]
 
 params = { "font.size" : 9,
