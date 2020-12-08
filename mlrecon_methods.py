@@ -105,9 +105,9 @@ def identify_frag_targets(wire_path_map):
     return frag_targets
 
 # perform partial quantum tomography on a circuit and return the corresponding raw data
-def partial_quantum_tomography(circuit, prep_qubits, meas_qubits, shots,
-                               tomography_backend = "qasm_simulator", prep_basis = "SIC",
-                               monitor_jobs = False):
+def partial_tomography(circuit, prep_qubits, meas_qubits, shots,
+                       tomography_backend = "qasm_simulator", prep_basis = "SIC",
+                       monitor_jobs = False):
     if prep_qubits == None: perp_qubits = []
     if meas_qubits == None: meas_qubits = []
     if prep_qubits == "all": prep_qubits = circuit.qubits
@@ -202,15 +202,15 @@ def organize_tomography_data(raw_data_collection, prep_qubits, meas_qubits):
 
 # perform process tomography on all fragments and return the corresponding data
 def collect_fragment_data(fragments, wire_path_map, shots,
-                          tomography_backend = "qasm_simulator", prep_basis = "SIC",
-                          monitor_jobs = False):
+                          tomography_backend = "qasm_simulator",
+                          prep_basis = "SIC", monitor_jobs = False):
     frag_targets = identify_frag_targets(wire_path_map)
-    frag_raw_data = [ partial_quantum_tomography(fragment,
-                                                 frag_targets[idx].get("prep"),
-                                                 frag_targets[idx].get("meas"),
-                                                 shots = shots, prep_basis = prep_basis,
-                                                 tomography_backend = tomography_backend,
-                                                 monitor_jobs = monitor_jobs)
+    frag_raw_data = [ partial_tomography(fragment,
+                                         frag_targets[idx].get("prep"),
+                                         frag_targets[idx].get("meas"),
+                                         shots = shots, prep_basis = prep_basis,
+                                         tomography_backend = tomography_backend,
+                                         monitor_jobs = monitor_jobs)
                       for idx, fragment in enumerate(fragments) ]
 
     return [ organize_tomography_data(raw_data,

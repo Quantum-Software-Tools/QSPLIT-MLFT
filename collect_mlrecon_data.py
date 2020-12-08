@@ -18,7 +18,7 @@ qubit_nums = range(6,21)
 log10_shots_default = 6
 
 # number of qubits and shots for fixed-qubit trials
-log10_shot_nums = numpy.linspace(4.5,7.5,7)
+log10_shot_nums = numpy.arange(4.5,7.6,0.25)
 qubit_num_default = 16
 
 # general options : CHANGE AT YOUR OWN PERIL
@@ -57,7 +57,7 @@ def collect_data(qubit_num, frag_num, log10_shots):
         return
 
     shots = int(10**log10_shots)
-    filename = data_dir + f"{circuit_type}_Q{qubit_num:02d}_F{frag_num}_S{log10_shots:.1f}.txt"
+    filename = data_dir + f"{circuit_type}_Q{qubit_num:02d}_F{frag_num}_S{log10_shots:.2f}.txt"
 
     # determine which trial to start on
     trial_start = 0

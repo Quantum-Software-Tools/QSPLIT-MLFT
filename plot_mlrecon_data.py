@@ -62,12 +62,33 @@ def all_values(info_key, **selection_args):
                         for file in select_files(**selection_args) ]))
 
 ##########################################################################################
+# estimate infidelity for the direct method of circuit cutting
+
+# total number of fragment variants for single-layer clustered random unitary circuits
+def variants(frag_num, frag = None):
+    if frag is not None:
+        if frag == 0 or frag == frag_num-1:
+            return 4 * 3
+        else:
+            return 4**2 * 3**2
+    else:
+        return sum( variants(frag_num, frag) for frag in range(frag_num) )
+
+# approximate upper bound on infidelity for a clustered random unitary circuit
+def infidelity_cuts_RUC(qubit_num, frag_num, total_shots):
+    shots = total_shots // variants(frag_num)
+    return 2*frag_num/shots * 2**(qubit_num/frag_num)
+
+infidelity_cuts_RUC = np.vectorize(infidelity_cuts_RUC)
+
+##########################################################################################
 # make fidelity plots with variable qubit numbers
 
 log10_shots = 6
+shots = 10**log10_shots
 
 circuit_info = { "circuit" : circuit_type,
-                 "log10_shots" : f"S{log10_shots:.1f}" }
+                 "log10_shots" : f"S{log10_shots:.2f}" }
 circuit_frags = all_values("frags", **circuit_info)
 
 figure, axes = get_figure_axes(len(circuit_frags))
@@ -91,16 +112,24 @@ for frag_idx, frags in enumerate(circuit_frags):
     qubit_strs = np.array(qubit_strs)[keep]
     qubit_nums = np.array(qubit_nums)[keep]
 
+    # analytical results
+    frag_num = int(frags[1:])
+    infidelity_full = 2**qubit_nums/(4*shots)
+    infidelity_cuts = infidelity_cuts_RUC(qubit_nums, frag_num, shots)
+    axes[0,frag_idx].semilogy(qubit_nums, infidelity_full, "k+")
+    axes[0,frag_idx].semilogy(qubit_nums, infidelity_cuts, "x", color = "tab:red")
+
     # indexed by [ qubit_num, circuit_instance, simulation_method ]
     data = np.array([ np.loadtxt(file(qubit_str)) for qubit_str in qubit_strs ])
 
+    # numerical results
     for fidelities, label, color, marker in zip(data.T, labels, colors, markers):
-        fidelity_avg = 1-np.mean(fidelities, axis = 0)
-        fidelity_std = np.std(fidelities, axis = 0)
+        infidelity_avg = 1-np.mean(fidelities, axis = 0)
+        infidelity_std = np.std(fidelities, axis = 0)
         plot_args = dict( color = color, label = label,
                           fillstyle = "none", markersize = 4 )
-        axes[0,frag_idx].semilogy(qubit_nums, fidelity_avg, marker, **plot_args)
-        axes[1,frag_idx].semilogy(qubit_nums, fidelity_std, marker, **plot_args)
+        axes[0,frag_idx].semilogy(qubit_nums, infidelity_avg, marker, **plot_args)
+        axes[1,frag_idx].semilogy(qubit_nums, infidelity_std, marker, **plot_args)
 
 # fix axis ticks
 for idx in np.ndindex(axes.shape):
@@ -153,19 +182,28 @@ for frag_idx, frags in enumerate(circuit_frags):
 
     # identify qubit numbers for which we have data
     log10_shot_strs = sorted(all_values("log10_shots", **circuit_info))
-    shot_nums = [ 10**float(ss[1:]) for ss in log10_shot_strs ]
+    shot_nums = np.array([ 10**float(ss[1:]) for ss in log10_shot_strs ])
+
+    # analytical results
+    frag_num = int(frags[1:])
+    qubits = float(circuit_info["qubits"][1:])
+    infidelity_full = 2**qubits/(4*shot_nums)
+    infidelity_cuts = infidelity_cuts_RUC(qubits, frag_num, shot_nums)
+    axes[0,frag_idx].semilogy(shot_nums, infidelity_full, "k+")
+    axes[0,frag_idx].semilogy(shot_nums, infidelity_cuts, "x", color = "tab:red")
 
     # indexed by [ qubit_num, circuit_instance, simulation_method ]
     data = np.array([ np.loadtxt(file(log10_shot_str))
                       for log10_shot_str in log10_shot_strs ])
 
+    # numerical results
     for fidelities, label, color, marker in zip(data.T, labels, colors, markers):
-        fidelity_avg = 1-np.mean(fidelities, axis = 0)
-        fidelity_std = np.std(fidelities, axis = 0)
+        infidelity_avg = 1-np.mean(fidelities, axis = 0)
+        infidelity_std = np.std(fidelities, axis = 0)
         plot_args = dict( color = color, label = label,
                           fillstyle = "none", markersize = 4 )
-        axes[0,frag_idx].loglog(shot_nums, fidelity_avg, marker, **plot_args)
-        axes[1,frag_idx].loglog(shot_nums, fidelity_std, marker, **plot_args)
+        axes[0,frag_idx].loglog(shot_nums, infidelity_avg, marker, **plot_args)
+        axes[1,frag_idx].loglog(shot_nums, infidelity_std, marker, **plot_args)
 
 # fix axis ticks
 for idx in np.ndindex(axes.shape):
