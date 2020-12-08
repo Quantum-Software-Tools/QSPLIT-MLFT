@@ -13,13 +13,46 @@ circuit_type = "clustered"
 qubit_min = 8
 qubit_max = 20
 
+# labels, colors, and markers for simulation data
 labels = [ "full", "direct", "MLFT" ]
 colors = [ "tab:blue", "tab:orange", "tab:green" ]
 markers = [ "o", "s", "^" ]
+data_info = list(zip(labels, colors, markers))
 
+# labels, colors, and markers for analytical estimates
+labels = [ "full (est.)", "direct (est.)" ]
+colors = [ "k", "tab:red" ]
+markers = [ "+", "1" ]
+est_info = list(zip(labels, colors, markers))
+
+# misc. plot parameters
 params = { "font.size" : 9,
            "text.usetex" : True }
 plt.rcParams.update(params)
+
+# sum of fragment infidelities
+def frag_infidelity(qubits, frags, total_shots):
+    frag_num = int(frags[1:]) # total number of fragments
+
+    # total number of fragment variants
+    # 4*3 for first/last fragment, plus 4**2 * 3**2 for middle fragments
+    variants = 24 + 144 * (frag_num-2)
+    shots = total_shots // variants
+
+    # classical outputs on each fragment
+    cls_output_nums = np.array([ qubits // frag_num ] * frag_num)
+    for jj in range(frag_num):
+        if sum(cls_output_nums) == qubits: break
+        cls_output_nums[jj] += 1
+
+    # quantum outputs on each fragment
+    qnt_output_nums = np.array([ 2 ] * frag_num)
+    qnt_output_nums[0] = qnt_output_nums[-1] = 1
+
+    output_nums = cls_output_nums + qnt_output_nums
+    return sum( 2**output_nums ) / shots
+
+frag_infidelity = np.vectorize(frag_infidelity)
 
 ##########################################################################################
 # extract info from data files
@@ -86,16 +119,18 @@ for frag_idx, frags in enumerate(circuit_frags):
     data = np.array([ np.loadtxt(file(qubit_str)) for qubit_str in qubit_strs ])
 
     # numerical results
-    for fidelities, label, color, marker in zip(data.T, labels, colors, markers):
-        infidelity = 1-np.mean(fidelities, axis = 0)
+    for fidelity, ( label, color, marker ) in zip(data.T, data_info):
+        infidelity = 1-np.mean(fidelity, axis = 0)
         plot_args = dict( color = color, label = label,
                           fillstyle = "none", markersize = 5 )
         axes[0,frag_idx].semilogy(qubit_nums, infidelity, marker, **plot_args)
 
-        if label == "full":
-            # analytical estimate of full infidelity
-            infidelity = 2**qubit_nums/(4*shots)
-            axes[0,frag_idx].semilogy(qubit_nums, infidelity, "k+", label = "full (est.)")
+    # analytical estimates of infidelity
+    inf_full = 2**qubit_nums/(4*shots)
+    inf_cuts = frag_infidelity(qubit_nums, frags, shots)
+    for infidelity, ( label, color, marker ) in zip([inf_full, inf_cuts], est_info):
+        axes[0,frag_idx].semilogy(qubit_nums, infidelity, marker,
+                                  color = color, label = label, zorder = 0)
 
 ##########################################################################################
 # plot fidelity as a function of shot number
@@ -123,16 +158,18 @@ for frag_idx, frags in enumerate(circuit_frags):
                       for log10_shot_str in log10_shot_strs ])
 
     # numerical results
-    for fidelities, label, color, marker in zip(data.T, labels, colors, markers):
-        infidelity = 1-np.mean(fidelities, axis = 0)
+    for fidelity, ( label, color, marker ) in zip(data.T, data_info):
+        infidelity = 1-np.mean(fidelity, axis = 0)
         plot_args = dict( color = color, label = label,
                           fillstyle = "none", markersize = 5 )
         axes[1,frag_idx].loglog(shot_nums, infidelity, marker, **plot_args)
 
-        if label == "full":
-            # analytical estimate of full infidelity
-            infidelity = 2**qubits/(4*shot_nums)
-            axes[1,frag_idx].semilogy(shot_nums, infidelity, "k+", label = "full (est.)")
+    # analytical estimates of infidelity
+    inf_full = 2**qubits/(4*shot_nums)
+    inf_cuts = frag_infidelity(qubits, frags, shot_nums)
+    for infidelity, ( label, color, marker ) in zip([inf_full, inf_cuts], est_info):
+        axes[1,frag_idx].semilogy(shot_nums, infidelity, marker,
+                                  color = color, label = label, zorder = 0)
 
 ##########################################################################################
 # miscellaneous cleanup
@@ -189,7 +226,7 @@ for axis in axes[:,0]:
 
 # place legend outside of plot
 handles, labels = axes[0,0].get_legend_handles_labels()
-figure.legend(handles, labels, loc = "center right", bbox_to_anchor = (1.15,0.5))
+figure.legend(handles, labels, loc = "center right", bbox_to_anchor = (1.18,0.52))
 
 plt.tight_layout(pad = 0.2, h_pad = 0.5)
 plt.savefig("infidelities.pdf", bbox_inches = "tight")
