@@ -7,7 +7,6 @@ import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 
-max_width = 8.6/2.54 # maximum width of single-column figure
 data_dir = "./mlrecon_data/"
 
 circuit_type = "clustered"
@@ -22,27 +21,8 @@ params = { "font.size" : 9,
            "text.usetex" : True }
 plt.rcParams.update(params)
 
-def get_figure_axes(frag_nums = 3):
-    fig_rows = 2
-    fig_cols = frag_nums
-    fig_width = 1.5 * fig_cols + 0.8
-    fig_height = 3.3
-    return plt.subplots(fig_rows, fig_cols, sharey = True,
-                        figsize = (fig_width, fig_height))
-
-def get_log_ticks(axis_limits):
-    base, subs = 10, np.arange(0,1.1,0.1)
-    major_locator = mpl.ticker.LogLocator(base = base)
-    minor_locator = mpl.ticker.LogLocator(base = base, subs = subs)
-    min_val, max_val = axis_limits
-    def filter(values):
-        return [ val for val in values if min_val <= val <= max_val ]
-    major_tick_values = filter(major_locator.tick_values(min_val, max_val))
-    minor_tick_values = filter(minor_locator.tick_values(min_val, max_val))
-    return major_tick_values, minor_tick_values
-
 ##########################################################################################
-# get data file info
+# extract info from data files
 
 data_files = glob.glob(data_dir + "*.txt")
 
@@ -62,13 +42,23 @@ def all_values(info_key, **selection_args):
                         for file in select_files(**selection_args) ]))
 
 ##########################################################################################
-# plot fidelity as a function of qubit number
+# set up figure template
+
+def get_figure_axes(frag_nums = 3):
+    fig_rows = 2
+    fig_cols = frag_nums
+    fig_width = 1.5 * fig_cols + 0.8
+    fig_height = 3.3
+    return plt.subplots(fig_rows, fig_cols, sharey = True,
+                        figsize = (fig_width, fig_height))
 
 figure, axes = get_figure_axes()
 
+##########################################################################################
+# plot fidelity as a function of qubit number
+
 log10_shots = 6
 shots = 10**log10_shots
-
 circuit_info = { "circuit" : circuit_type,
                  "log10_shots" : f"S{log10_shots:.2f}" }
 circuit_frags = all_values("frags", **circuit_info)
@@ -111,7 +101,6 @@ for frag_idx, frags in enumerate(circuit_frags):
 # plot fidelity as a function of shot number
 
 qubits = 16
-
 circuit_info = { "circuit" : circuit_type,
                  "qubits" : f"Q{qubits}" }
 circuit_frags = all_values("frags", **circuit_info)
@@ -148,7 +137,7 @@ for frag_idx, frags in enumerate(circuit_frags):
 ##########################################################################################
 # miscellaneous cleanup
 
-# fix axis ticks
+# add tick marks to top / right of axes
 for idx in np.ndindex(axes.shape):
     axes[idx].tick_params(top = True)
     axes[idx].tick_params(right = True)
@@ -172,6 +161,18 @@ xticklabels = [ tick if tick % 4 == 0 else "" for tick in xticks ]
 for axis in axes[0,:]:
     axis.set_xticks(xticks)
     axis.set_xticklabels(xticklabels)
+
+# get major/minor tick marks for a logarithmic axis
+def get_log_ticks(axis_limits):
+    base, subs = 10, np.arange(0,1.1,0.1)
+    major_locator = mpl.ticker.LogLocator(base = base)
+    minor_locator = mpl.ticker.LogLocator(base = base, subs = subs)
+    min_val, max_val = axis_limits
+    def filter(values):
+        return [ val for val in values if min_val <= val <= max_val ]
+    major_tick_values = filter(major_locator.tick_values(min_val, max_val))
+    minor_tick_values = filter(minor_locator.tick_values(min_val, max_val))
+    return major_tick_values, minor_tick_values
 
 # set horizontal axis ticks
 major_tick_values, minor_tick_values = get_log_ticks(axes[1,0].get_xlim())
