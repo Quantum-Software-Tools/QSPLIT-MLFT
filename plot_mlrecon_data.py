@@ -22,12 +22,12 @@ params = { "font.size" : 9,
            "text.usetex" : True }
 plt.rcParams.update(params)
 
-def get_figure_axes(frag_nums):
+def get_figure_axes(frag_nums = 3):
     fig_rows = 2
     fig_cols = frag_nums
-    fig_width = 1.6 * fig_cols
+    fig_width = 1.5 * fig_cols + 0.8
     fig_height = 3.3
-    return plt.subplots(fig_rows, fig_cols, sharex = True, sharey = True,
+    return plt.subplots(fig_rows, fig_cols, sharey = True,
                         figsize = (fig_width, fig_height))
 
 def get_log_ticks(axis_limits):
@@ -62,27 +62,9 @@ def all_values(info_key, **selection_args):
                         for file in select_files(**selection_args) ]))
 
 ##########################################################################################
-# estimate infidelity for the direct method of circuit cutting
+# plot fidelity as a function of qubit number
 
-# total number of fragment variants for single-layer clustered random unitary circuits
-def variants(frag_num, frag = None):
-    if frag is not None:
-        if frag == 0 or frag == frag_num-1:
-            return 4 * 3
-        else:
-            return 4**2 * 3**2
-    else:
-        return sum( variants(frag_num, frag) for frag in range(frag_num) )
-
-# approximate upper bound on infidelity for a clustered random unitary circuit
-def infidelity_cuts_RUC(qubit_num, frag_num, total_shots):
-    shots = total_shots // variants(frag_num)
-    return 2*frag_num/shots * 2**(qubit_num/frag_num)
-
-infidelity_cuts_RUC = np.vectorize(infidelity_cuts_RUC)
-
-##########################################################################################
-# make fidelity plots with variable qubit numbers
+figure, axes = get_figure_axes()
 
 log10_shots = 6
 shots = 10**log10_shots
@@ -90,8 +72,6 @@ shots = 10**log10_shots
 circuit_info = { "circuit" : circuit_type,
                  "log10_shots" : f"S{log10_shots:.2f}" }
 circuit_frags = all_values("frags", **circuit_info)
-
-figure, axes = get_figure_axes(len(circuit_frags))
 
 for frag_idx, frags in enumerate(circuit_frags):
     circuit_info["frags"] = frags
@@ -112,64 +92,29 @@ for frag_idx, frags in enumerate(circuit_frags):
     qubit_strs = np.array(qubit_strs)[keep]
     qubit_nums = np.array(qubit_nums)[keep]
 
-    # analytical results
-    frag_num = int(frags[1:])
-    infidelity_full = 2**qubit_nums/(4*shots)
-    infidelity_cuts = infidelity_cuts_RUC(qubit_nums, frag_num, shots)
-    axes[0,frag_idx].semilogy(qubit_nums, infidelity_full, "k+")
-    axes[0,frag_idx].semilogy(qubit_nums, infidelity_cuts, "x", color = "tab:red")
-
     # indexed by [ qubit_num, circuit_instance, simulation_method ]
     data = np.array([ np.loadtxt(file(qubit_str)) for qubit_str in qubit_strs ])
 
     # numerical results
     for fidelities, label, color, marker in zip(data.T, labels, colors, markers):
-        infidelity_avg = 1-np.mean(fidelities, axis = 0)
-        infidelity_std = np.std(fidelities, axis = 0)
+        infidelity = 1-np.mean(fidelities, axis = 0)
         plot_args = dict( color = color, label = label,
-                          fillstyle = "none", markersize = 4 )
-        axes[0,frag_idx].semilogy(qubit_nums, infidelity_avg, marker, **plot_args)
-        axes[1,frag_idx].semilogy(qubit_nums, infidelity_std, marker, **plot_args)
+                          fillstyle = "none", markersize = 5 )
+        axes[0,frag_idx].semilogy(qubit_nums, infidelity, marker, **plot_args)
 
-# fix axis ticks
-for idx in np.ndindex(axes.shape):
-    axes[idx].tick_params(top = True)
-    axes[idx].tick_params(right = True)
-
-# set titles and axis labels
-axes[0,0].set_ylabel(r"$1-f$")
-axes[1,0].set_ylabel(r"$\sigma_f$")
-for frag_idx, frags in enumerate(circuit_frags):
-    axes[0,frag_idx].set_title(f"$F={frags[1:]}$", pad = 8)
-
-for axis in axes[-1,:]:
-    axis.set_xlabel("$Q$")
-
-# set horizontal axis ticks and labels
-xticks = list(range(qubit_min, qubit_max+1, 2))
-xticklabels = [ tick if tick % 4 == 0 else "" for tick in xticks ]
-axes[0,0].set_xticks(xticks)
-axes[0,-1].set_xticklabels(xticklabels)
-
-# set vertical axis ticks
-major_tick_values, minor_tick_values = get_log_ticks(axes[0,0].get_ylim())
-axes[0,0].yaxis.set_ticks(major_tick_values)
-axes[0,0].yaxis.set_ticks(minor_tick_values, minor = True)
-
-axes[1,0].legend(loc = "best")
-plt.tight_layout(pad = 0.2)
-plt.savefig(f"fidelities_qubits.pdf", bbox_inches = "tight")
+        if label == "full":
+            # analytical estimate of full infidelity
+            infidelity = 2**qubit_nums/(4*shots)
+            axes[0,frag_idx].semilogy(qubit_nums, infidelity, "k+", label = "full (est.)")
 
 ##########################################################################################
-# make fidelity plots with variable shot numbers
+# plot fidelity as a function of shot number
 
 qubits = 16
 
 circuit_info = { "circuit" : circuit_type,
                  "qubits" : f"Q{qubits}" }
 circuit_frags = all_values("frags", **circuit_info)
-
-figure, axes = get_figure_axes(len(circuit_frags))
 
 for frag_idx, frags in enumerate(circuit_frags):
     circuit_info["frags"] = frags
@@ -184,51 +129,66 @@ for frag_idx, frags in enumerate(circuit_frags):
     log10_shot_strs = sorted(all_values("log10_shots", **circuit_info))
     shot_nums = np.array([ 10**float(ss[1:]) for ss in log10_shot_strs ])
 
-    # analytical results
-    frag_num = int(frags[1:])
-    qubits = float(circuit_info["qubits"][1:])
-    infidelity_full = 2**qubits/(4*shot_nums)
-    infidelity_cuts = infidelity_cuts_RUC(qubits, frag_num, shot_nums)
-    axes[0,frag_idx].semilogy(shot_nums, infidelity_full, "k+")
-    axes[0,frag_idx].semilogy(shot_nums, infidelity_cuts, "x", color = "tab:red")
-
     # indexed by [ qubit_num, circuit_instance, simulation_method ]
     data = np.array([ np.loadtxt(file(log10_shot_str))
                       for log10_shot_str in log10_shot_strs ])
 
     # numerical results
     for fidelities, label, color, marker in zip(data.T, labels, colors, markers):
-        infidelity_avg = 1-np.mean(fidelities, axis = 0)
-        infidelity_std = np.std(fidelities, axis = 0)
+        infidelity = 1-np.mean(fidelities, axis = 0)
         plot_args = dict( color = color, label = label,
-                          fillstyle = "none", markersize = 4 )
-        axes[0,frag_idx].loglog(shot_nums, infidelity_avg, marker, **plot_args)
-        axes[1,frag_idx].loglog(shot_nums, infidelity_std, marker, **plot_args)
+                          fillstyle = "none", markersize = 5 )
+        axes[1,frag_idx].loglog(shot_nums, infidelity, marker, **plot_args)
+
+        if label == "full":
+            # analytical estimate of full infidelity
+            infidelity = 2**qubits/(4*shot_nums)
+            axes[1,frag_idx].semilogy(shot_nums, infidelity, "k+", label = "full (est.)")
+
+##########################################################################################
+# miscellaneous cleanup
 
 # fix axis ticks
 for idx in np.ndindex(axes.shape):
     axes[idx].tick_params(top = True)
     axes[idx].tick_params(right = True)
 
-# set titles and axis labels
+# set axis labels and titles
 axes[0,0].set_ylabel(r"$1-f$")
-axes[1,0].set_ylabel(r"$\sigma_f$")
+axes[1,0].set_ylabel(r"$1-f$")
+for axis in axes[0,:]: axis.set_xlabel("$Q$", labelpad = 1)
+for axis in axes[1,:]: axis.set_xlabel("$S$")
 for frag_idx, frags in enumerate(circuit_frags):
     axes[0,frag_idx].set_title(f"$F={frags[1:]}$", pad = 8)
 
-for axis in axes[-1,:]:
-    axis.set_xlabel("$S$")
+axes[0,-1].yaxis.set_label_position("right")
+axes[1,-1].yaxis.set_label_position("right")
+axes[0,-1].set_ylabel(r"$S=10^6$", labelpad = 10)
+axes[1,-1].set_ylabel(r"$Q=16$", labelpad = 10)
+
+# set horizontal axis ticks and labels
+xticks = list(range(qubit_min, qubit_max+1, 2))
+xticklabels = [ tick if tick % 4 == 0 else "" for tick in xticks ]
+for axis in axes[0,:]:
+    axis.set_xticks(xticks)
+    axis.set_xticklabels(xticklabels)
 
 # set horizontal axis ticks
-major_tick_values, minor_tick_values = get_log_ticks(axes[0,0].get_xlim())
-axes[0,0].xaxis.set_ticks(major_tick_values)
-axes[0,0].xaxis.set_ticks(minor_tick_values, minor = True)
+major_tick_values, minor_tick_values = get_log_ticks(axes[1,0].get_xlim())
+for axis in axes[1,:]:
+    axis.xaxis.set_ticks(major_tick_values)
+    axis.xaxis.set_ticks(minor_tick_values, minor = True)
 
 # set vertical axis ticks
+axes[0,0].set_ylim(top = 1)
 major_tick_values, minor_tick_values = get_log_ticks(axes[0,0].get_ylim())
-axes[0,0].yaxis.set_ticks(major_tick_values)
-axes[0,0].yaxis.set_ticks(minor_tick_values, minor = True)
+for axis in axes[:,0]:
+    axis.yaxis.set_ticks(major_tick_values)
+    axis.yaxis.set_ticks(minor_tick_values, minor = True)
 
-axes[0,0].legend(loc = "best")
-plt.tight_layout(pad = 0.2)
-plt.savefig(f"fidelities_shots.pdf", bbox_inches = "tight")
+# place legend outside of plot
+handles, labels = axes[0,0].get_legend_handles_labels()
+figure.legend(handles, labels, loc = "center right", bbox_to_anchor = (1.15,0.5))
+
+plt.tight_layout(pad = 0.2, h_pad = 0.5)
+plt.savefig("infidelities.pdf", bbox_inches = "tight")
