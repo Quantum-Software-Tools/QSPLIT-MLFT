@@ -22,7 +22,7 @@ data_info = list(zip(labels, colors, markers))
 # labels, colors, and markers for analytical estimates
 labels = [ "full (est.)", "direct (est.)" ]
 colors = [ "k", "tab:red" ]
-markers = [ "+", "1" ]
+markers = [ "+", "2" ]
 est_info = list(zip(labels, colors, markers))
 
 # misc. plot parameters
@@ -40,16 +40,11 @@ def frag_infidelity(qubits, frags, total_shots):
     shots = total_shots // variants
 
     # classical outputs on each fragment
-    cls_output_nums = np.array([ qubits // frag_num ] * frag_num)
+    output_nums = np.array([ qubits // frag_num ] * frag_num)
     for jj in range(frag_num):
-        if sum(cls_output_nums) == qubits: break
-        cls_output_nums[jj] += 1
+        if sum(output_nums) == qubits: break
+        output_nums[jj] += 1
 
-    # quantum outputs on each fragment
-    qnt_output_nums = np.array([ 2 ] * frag_num)
-    qnt_output_nums[0] = qnt_output_nums[-1] = 1
-
-    output_nums = cls_output_nums + qnt_output_nums
     return sum( 2**output_nums ) / shots
 
 frag_infidelity = np.vectorize(frag_infidelity)
@@ -85,7 +80,8 @@ def get_figure_axes(frag_nums = 3):
     return plt.subplots(fig_rows, fig_cols, sharey = True,
                         figsize = (fig_width, fig_height))
 
-figure, axes = get_figure_axes()
+figure_avg, axes_avg = get_figure_axes()
+figure_std, axes_std = get_figure_axes()
 
 ##########################################################################################
 # plot fidelity as a function of qubit number
@@ -120,17 +116,19 @@ for frag_idx, frags in enumerate(circuit_frags):
 
     # numerical results
     for fidelity, ( label, color, marker ) in zip(data.T, data_info):
-        infidelity = 1-np.mean(fidelity, axis = 0)
+        infidelity_avg = 1-np.mean(fidelity, axis = 0)
+        infidelity_std = np.std(fidelity, axis = 0)
         plot_args = dict( color = color, label = label,
-                          fillstyle = "none", markersize = 5 )
-        axes[0,frag_idx].semilogy(qubit_nums, infidelity, marker, **plot_args)
+                          fillstyle = "none", markersize = 6 )
+        axes_avg[0,frag_idx].semilogy(qubit_nums, infidelity_avg, marker, **plot_args)
+        axes_std[0,frag_idx].semilogy(qubit_nums, infidelity_std, marker, **plot_args)
 
     # analytical estimates of infidelity
     inf_full = 2**qubit_nums/(4*shots)
     inf_cuts = frag_infidelity(qubit_nums, frags, shots)
     for infidelity, ( label, color, marker ) in zip([inf_full, inf_cuts], est_info):
-        axes[0,frag_idx].semilogy(qubit_nums, infidelity, marker,
-                                  color = color, label = label, zorder = 0)
+        axes_avg[0,frag_idx].semilogy(qubit_nums, infidelity, marker,
+                                      color = color, label = label, zorder = 0)
 
 ##########################################################################################
 # plot fidelity as a function of shot number
@@ -159,45 +157,22 @@ for frag_idx, frags in enumerate(circuit_frags):
 
     # numerical results
     for fidelity, ( label, color, marker ) in zip(data.T, data_info):
-        infidelity = 1-np.mean(fidelity, axis = 0)
+        infidelity_avg = 1-np.mean(fidelity, axis = 0)
+        infidelity_std = np.std(fidelity, axis = 0)
         plot_args = dict( color = color, label = label,
-                          fillstyle = "none", markersize = 5 )
-        axes[1,frag_idx].loglog(shot_nums, infidelity, marker, **plot_args)
+                          fillstyle = "none", markersize = 6 )
+        axes_avg[1,frag_idx].loglog(shot_nums, infidelity_avg, marker, **plot_args)
+        axes_std[1,frag_idx].loglog(shot_nums, infidelity_std, marker, **plot_args)
 
     # analytical estimates of infidelity
     inf_full = 2**qubits/(4*shot_nums)
     inf_cuts = frag_infidelity(qubits, frags, shot_nums)
     for infidelity, ( label, color, marker ) in zip([inf_full, inf_cuts], est_info):
-        axes[1,frag_idx].semilogy(shot_nums, infidelity, marker,
-                                  color = color, label = label, zorder = 0)
+        axes_avg[1,frag_idx].semilogy(shot_nums, infidelity, marker,
+                                      color = color, label = label, zorder = 0)
 
 ##########################################################################################
 # miscellaneous cleanup
-
-# add tick marks to top / right of axes
-for idx in np.ndindex(axes.shape):
-    axes[idx].tick_params(top = True)
-    axes[idx].tick_params(right = True)
-
-# set axis labels and titles
-axes[0,0].set_ylabel(r"$1-f$")
-axes[1,0].set_ylabel(r"$1-f$")
-for axis in axes[0,:]: axis.set_xlabel("$Q$", labelpad = 1)
-for axis in axes[1,:]: axis.set_xlabel("$S$")
-for frag_idx, frags in enumerate(circuit_frags):
-    axes[0,frag_idx].set_title(f"$F={frags[1:]}$", pad = 8)
-
-axes[0,-1].yaxis.set_label_position("right")
-axes[1,-1].yaxis.set_label_position("right")
-axes[0,-1].set_ylabel(r"$S=10^6$", labelpad = 10)
-axes[1,-1].set_ylabel(r"$Q=16$", labelpad = 10)
-
-# set horizontal axis ticks and labels
-xticks = list(range(qubit_min, qubit_max+1, 2))
-xticklabels = [ tick if tick % 4 == 0 else "" for tick in xticks ]
-for axis in axes[0,:]:
-    axis.set_xticks(xticks)
-    axis.set_xticklabels(xticklabels)
 
 # get major/minor tick marks for a logarithmic axis
 def get_log_ticks(axis_limits):
@@ -211,22 +186,54 @@ def get_log_ticks(axis_limits):
     minor_tick_values = filter(minor_locator.tick_values(min_val, max_val))
     return major_tick_values, minor_tick_values
 
-# set horizontal axis ticks
-major_tick_values, minor_tick_values = get_log_ticks(axes[1,0].get_xlim())
-for axis in axes[1,:]:
-    axis.xaxis.set_ticks(major_tick_values)
-    axis.xaxis.set_ticks(minor_tick_values, minor = True)
+for figure, axes, ylabel in [ ( figure_avg, axes_avg, r"$\mathcal{I}$" ),
+                              ( figure_std, axes_std, r"$\sigma_{\mathcal{I}}$" ) ]:
 
-# set vertical axis ticks
-axes[0,0].set_ylim(top = 1)
-major_tick_values, minor_tick_values = get_log_ticks(axes[0,0].get_ylim())
-for axis in axes[:,0]:
-    axis.yaxis.set_ticks(major_tick_values)
-    axis.yaxis.set_ticks(minor_tick_values, minor = True)
+    # add tick marks to top / right of axes
+    for idx in np.ndindex(axes.shape):
+        axes[idx].tick_params(top = True)
+        axes[idx].tick_params(right = True)
 
-# place legend outside of plot
-handles, labels = axes[0,0].get_legend_handles_labels()
-figure.legend(handles, labels, loc = "center right", bbox_to_anchor = (1.18,0.52))
+    # set axis labels and titles
+    axes[0,0].set_ylabel(ylabel)
+    axes[1,0].set_ylabel(ylabel)
+    for axis in axes[0,:]: axis.set_xlabel("$Q$", labelpad = 1)
+    for axis in axes[1,:]: axis.set_xlabel("$S$")
+    for frag_idx, frags in enumerate(circuit_frags):
+        axes[0,frag_idx].set_title(f"$F={frags[1:]}$", pad = 8)
 
-plt.tight_layout(pad = 0.2, h_pad = 0.5)
-plt.savefig("infidelities.pdf", bbox_inches = "tight")
+    axes[0,-1].yaxis.set_label_position("right")
+    axes[1,-1].yaxis.set_label_position("right")
+    axes[0,-1].set_ylabel(r"$S=10^6$", labelpad = 10)
+    axes[1,-1].set_ylabel(r"$Q=16$", labelpad = 10)
+
+    # set horizontal axis ticks and labels
+    xticks = list(range(qubit_min, qubit_max+1, 2))
+    xticklabels = [ tick if tick % 4 == 0 else "" for tick in xticks ]
+    for axis in axes[0,:]:
+        axis.set_xticks(xticks)
+        axis.set_xticklabels(xticklabels)
+
+    # set horizontal axis ticks
+    major_tick_values, minor_tick_values = get_log_ticks(axes[1,0].get_xlim())
+    for axis in axes[1,:]:
+        axis.xaxis.set_ticks(major_tick_values)
+        axis.xaxis.set_ticks(minor_tick_values, minor = True)
+
+    # set vertical axis ticks
+    axes[0,0].set_ylim(top = 1)
+    major_tick_values, minor_tick_values = get_log_ticks(axes[0,0].get_ylim())
+    for axis in axes[:,0]:
+        axis.yaxis.set_ticks(major_tick_values)
+        axis.yaxis.set_ticks(minor_tick_values, minor = True)
+
+# place legend outside of plot and save
+handles, labels = axes_avg[0,0].get_legend_handles_labels()
+figure_avg.legend(handles, labels, loc = "center left", bbox_to_anchor = (0.96,0.52))
+figure_avg.tight_layout(pad = 0.2, h_pad = 0.5)
+figure_avg.savefig("infidelities_avg.pdf", bbox_inches = "tight")
+
+handles, labels = axes_std[0,0].get_legend_handles_labels()
+figure_std.legend(handles, labels, loc = "center left", bbox_to_anchor = (0.96,0.5))
+figure_std.tight_layout(pad = 0.2, h_pad = 0.5)
+figure_std.savefig("infidelities_std.pdf", bbox_inches = "tight")
