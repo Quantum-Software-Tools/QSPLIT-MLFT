@@ -13,6 +13,9 @@ circuit_type = "clustered"
 qubit_min = 8
 qubit_max = 20
 
+log10_shots_default = 6
+qubits_default = 18
+
 # labels, colors, and markers for simulation data
 labels = [ "full", "direct", "MLFT" ]
 colors = [ "tab:blue", "tab:orange", "tab:green" ]
@@ -77,16 +80,57 @@ def get_figure_axes(frag_nums = 3):
     fig_cols = frag_nums
     fig_width = 1.5 * fig_cols + 0.8
     fig_height = 3.3
-    return plt.subplots(fig_rows, fig_cols, sharey = True,
+    return plt.subplots(fig_rows, fig_cols, sharey = "row",
                         figsize = (fig_width, fig_height))
 
 figure_avg, axes_avg = get_figure_axes()
 figure_std, axes_std = get_figure_axes()
 
 ##########################################################################################
+# plot fidelity as a function of shot number
+
+qubits = qubits_default
+circuit_info = { "circuit" : circuit_type,
+                 "qubits" : f"Q{qubits}" }
+circuit_frags = all_values("frags", **circuit_info)
+
+for frag_idx, frags in enumerate(circuit_frags):
+    circuit_info["frags"] = frags
+
+    def file(log10_shots):
+        file_info = dict(circuit_info, **{ "log10_shots" : log10_shots })
+        files = select_files(**file_info)
+        assert(len(files) == 1)
+        return files[0]
+
+    # identify qubit numbers for which we have data
+    log10_shot_strs = sorted(all_values("log10_shots", **circuit_info))
+    shot_nums = np.array([ 10**float(ss[1:]) for ss in log10_shot_strs ])
+
+    # indexed by [ qubit_num, circuit_instance, simulation_method ]
+    data = np.array([ np.loadtxt(file(log10_shot_str))
+                      for log10_shot_str in log10_shot_strs ])
+
+    # numerical results
+    for fidelity, ( label, color, marker ) in zip(data.T, data_info):
+        infidelity_avg = 1-np.mean(fidelity, axis = 0)
+        infidelity_std = np.std(fidelity, axis = 0)
+        plot_args = dict( color = color, label = label,
+                          fillstyle = "none", markersize = 6 )
+        axes_avg[0,frag_idx].loglog(shot_nums, infidelity_avg, marker, **plot_args)
+        axes_std[0,frag_idx].loglog(shot_nums, infidelity_std, marker, **plot_args)
+
+    # analytical estimates of infidelity
+    inf_full = 2**qubits/(4*shot_nums)
+    inf_cuts = frag_infidelity(qubits, frags, shot_nums)
+    for infidelity, ( label, color, marker ) in zip([inf_full, inf_cuts], est_info):
+        axes_avg[0,frag_idx].semilogy(shot_nums, infidelity, marker,
+                                      color = color, label = label, zorder = 0)
+
+##########################################################################################
 # plot fidelity as a function of qubit number
 
-log10_shots = 6
+log10_shots = log10_shots_default
 shots = 10**log10_shots
 circuit_info = { "circuit" : circuit_type,
                  "log10_shots" : f"S{log10_shots:.2f}" }
@@ -120,55 +164,14 @@ for frag_idx, frags in enumerate(circuit_frags):
         infidelity_std = np.std(fidelity, axis = 0)
         plot_args = dict( color = color, label = label,
                           fillstyle = "none", markersize = 6 )
-        axes_avg[0,frag_idx].semilogy(qubit_nums, infidelity_avg, marker, **plot_args)
-        axes_std[0,frag_idx].semilogy(qubit_nums, infidelity_std, marker, **plot_args)
+        axes_avg[1,frag_idx].semilogy(qubit_nums, infidelity_avg, marker, **plot_args)
+        axes_std[1,frag_idx].semilogy(qubit_nums, infidelity_std, marker, **plot_args)
 
     # analytical estimates of infidelity
     inf_full = 2**qubit_nums/(4*shots)
     inf_cuts = frag_infidelity(qubit_nums, frags, shots)
     for infidelity, ( label, color, marker ) in zip([inf_full, inf_cuts], est_info):
-        axes_avg[0,frag_idx].semilogy(qubit_nums, infidelity, marker,
-                                      color = color, label = label, zorder = 0)
-
-##########################################################################################
-# plot fidelity as a function of shot number
-
-qubits = 16
-circuit_info = { "circuit" : circuit_type,
-                 "qubits" : f"Q{qubits}" }
-circuit_frags = all_values("frags", **circuit_info)
-
-for frag_idx, frags in enumerate(circuit_frags):
-    circuit_info["frags"] = frags
-
-    def file(log10_shots):
-        file_info = dict(circuit_info, **{ "log10_shots" : log10_shots })
-        files = select_files(**file_info)
-        assert(len(files) == 1)
-        return files[0]
-
-    # identify qubit numbers for which we have data
-    log10_shot_strs = sorted(all_values("log10_shots", **circuit_info))
-    shot_nums = np.array([ 10**float(ss[1:]) for ss in log10_shot_strs ])
-
-    # indexed by [ qubit_num, circuit_instance, simulation_method ]
-    data = np.array([ np.loadtxt(file(log10_shot_str))
-                      for log10_shot_str in log10_shot_strs ])
-
-    # numerical results
-    for fidelity, ( label, color, marker ) in zip(data.T, data_info):
-        infidelity_avg = 1-np.mean(fidelity, axis = 0)
-        infidelity_std = np.std(fidelity, axis = 0)
-        plot_args = dict( color = color, label = label,
-                          fillstyle = "none", markersize = 6 )
-        axes_avg[1,frag_idx].loglog(shot_nums, infidelity_avg, marker, **plot_args)
-        axes_std[1,frag_idx].loglog(shot_nums, infidelity_std, marker, **plot_args)
-
-    # analytical estimates of infidelity
-    inf_full = 2**qubits/(4*shot_nums)
-    inf_cuts = frag_infidelity(qubits, frags, shot_nums)
-    for infidelity, ( label, color, marker ) in zip([inf_full, inf_cuts], est_info):
-        axes_avg[1,frag_idx].semilogy(shot_nums, infidelity, marker,
+        axes_avg[1,frag_idx].semilogy(qubit_nums, infidelity, marker,
                                       color = color, label = label, zorder = 0)
 
 ##########################################################################################
@@ -187,7 +190,7 @@ def get_log_ticks(axis_limits):
     return major_tick_values, minor_tick_values
 
 for figure, axes, ylabel in [ ( figure_avg, axes_avg, r"$\mathcal{I}$" ),
-                              ( figure_std, axes_std, r"$\sigma_{\mathcal{I}}$" ) ]:
+                              ( figure_std, axes_std, r"$\sigma(\mathcal{I})$" ) ]:
 
     # add tick marks to top / right of axes
     for idx in np.ndindex(axes.shape):
@@ -197,33 +200,32 @@ for figure, axes, ylabel in [ ( figure_avg, axes_avg, r"$\mathcal{I}$" ),
     # set axis labels and titles
     axes[0,0].set_ylabel(ylabel)
     axes[1,0].set_ylabel(ylabel)
-    for axis in axes[0,:]: axis.set_xlabel("$Q$", labelpad = 1)
-    for axis in axes[1,:]: axis.set_xlabel("$S$")
+    for axis in axes[0,:]: axis.set_xlabel("$S$")
+    for axis in axes[1,:]: axis.set_xlabel("$Q$", labelpad = 1)
     for frag_idx, frags in enumerate(circuit_frags):
         axes[0,frag_idx].set_title(f"$F={frags[1:]}$", pad = 8)
 
     axes[0,-1].yaxis.set_label_position("right")
     axes[1,-1].yaxis.set_label_position("right")
-    axes[0,-1].set_ylabel(r"$S=10^6$", labelpad = 10)
-    axes[1,-1].set_ylabel(r"$Q=16$", labelpad = 10)
+    axes[0,-1].set_ylabel(f"$Q={qubits_default}$", labelpad = 10)
+    axes[1,-1].set_ylabel(f"$S=10^{log10_shots_default}$", labelpad = 10)
 
     # set horizontal axis ticks and labels
-    xticks = list(range(qubit_min, qubit_max+1, 2))
-    xticklabels = [ tick if tick % 4 == 0 else "" for tick in xticks ]
+    major_tick_values, minor_tick_values = get_log_ticks(axes[0,0].get_xlim())
     for axis in axes[0,:]:
-        axis.set_xticks(xticks)
-        axis.set_xticklabels(xticklabels)
-
-    # set horizontal axis ticks
-    major_tick_values, minor_tick_values = get_log_ticks(axes[1,0].get_xlim())
-    for axis in axes[1,:]:
         axis.xaxis.set_ticks(major_tick_values)
         axis.xaxis.set_ticks(minor_tick_values, minor = True)
 
-    # set vertical axis ticks
-    axes[0,0].set_ylim(top = 1)
-    major_tick_values, minor_tick_values = get_log_ticks(axes[0,0].get_ylim())
+    xticks = list(range(qubit_min, qubit_max+1, 2))
+    xticklabels = [ tick if tick % 4 == 0 else "" for tick in xticks ]
+    for axis in axes[1,:]:
+        axis.set_xticks(xticks)
+        axis.set_xticklabels(xticklabels)
+
+    # set vertical axis limits and ticks
     for axis in axes[:,0]:
+        axis.set_ylim(top = 1)
+        major_tick_values, minor_tick_values = get_log_ticks(axis.get_ylim())
         axis.yaxis.set_ticks(major_tick_values)
         axis.yaxis.set_ticks(minor_tick_values, minor = True)
 
@@ -234,6 +236,6 @@ figure_avg.tight_layout(pad = 0.2, h_pad = 0.5)
 figure_avg.savefig("infidelities_avg.pdf", bbox_inches = "tight")
 
 handles, labels = axes_std[0,0].get_legend_handles_labels()
-figure_std.legend(handles, labels, loc = "center left", bbox_to_anchor = (0.96,0.5))
+figure_std.legend(handles, labels, loc = "center left", bbox_to_anchor = (0.96,0.52))
 figure_std.tight_layout(pad = 0.2, h_pad = 0.5)
 figure_std.savefig("infidelities_std.pdf", bbox_inches = "tight")
