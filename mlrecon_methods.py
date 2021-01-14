@@ -531,7 +531,7 @@ def add_qubit_markers(circuit):
         circuit.rz(qq, circuit.qubits[qq])
 
 def random_unitary(qubits):
-    return qiskit.quantum_info.random.utils.random_unitary(2**qubits)
+    return qiskit.quantum_info.random.random_unitary(2**qubits)
 
 # construt a circuit that prepares a multi-qubit GHZ state
 def ghz_circuit(qubits):
@@ -638,7 +638,8 @@ def build_circuit_with_cuts(circuit_type, layers, qubits, fragments, seed = 0):
 
     if circuit_type == "GHZ":
         circuit = ghz_circuit(qubits)
-        cuts = [ (circuit.qubits[qubits//2], 2) ]
+        cuts = [ (circuit.qubits[idx * qubits//fragments], 2)
+                 for idx in range(1,fragments) ]
 
     elif circuit_type == "cascade":
         circuit = random_cascade_circuit(qubits, layers, seed)

@@ -2,7 +2,7 @@
 
 # author: Michael A. Perlin (github.com/perlinm)
 
-import networkx as nx
+import retworkx as rx
 import qiskit as qs
 import copy
 
@@ -24,25 +24,25 @@ def terminal_node(graph, qubit, termination_type):
 # note that the subgraph circuits act on the full registers of the original graph circuit
 def disjoint_subgraphs(graph, zip_output = True):
 
-    nx_graph = graph.to_networkx().to_undirected()
+    rx_graph = graph._multi_graph
 
     # identify all subgraphs of nodes
-    nx_subgraphs = [ nx_graph.subgraph(subgraph_nodes)
-                     for subgraph_nodes in nx.connected_components(nx_graph) ]
+    rx_subgraphs = [ rx_graph.subgraph(list(subgraph_nodes))
+                     for subgraph_nodes in rx.weakly_connected_components(rx_graph) ]
 
     # convert subgraphs of nodes to circuit graphs
     subgraphs = []
     subgraph_wires = []
-    for nx_subgraph in nx_subgraphs:
+    for rx_subgraph in rx_subgraphs:
         # make a copy of the full graph, and remove nodes not in this subgraph
         subgraph = copy.deepcopy(graph)
         for node in subgraph.op_nodes():
-            if not any( qs.dagcircuit.DAGNode.semantic_eq(node, nx_node)
-                        for nx_node in nx_subgraph.nodes() ):
+            if not any( qs.dagcircuit.DAGNode.semantic_eq(node, rx_node)
+                        for rx_node in rx_subgraph.nodes() ):
                 subgraph.remove_op_node(node)
 
         # identify wires used in this subgraph circuit
-        wires = { node.wire for node in nx_subgraph.nodes() if node.type == "in" }
+        wires = { node.wire for node in rx_subgraph.nodes() if node.type == "in" }
 
         subgraphs.append(subgraph)
         subgraph_wires.append(wires)
@@ -59,13 +59,13 @@ def trimmed_graph(graph, graph_wires = None, qreg_name = "q", creg_name = "c"):
         graph_wires = set()
 
         # identify all subgraphs
-        nx_subgraphs = nx.connected_component_subgraphs(graph.to_networkx().to_undirected())
-        for nx_subgraph in nx_subgraphs:
+        rx_subgraphs = rx.connected_component_subgraphs(graph.to_networkx().to_undirected())
+        for rx_subgraph in rx_subgraphs:
             # if there is only one edge in this subgraph, ignore it; it is an empty wire
-            if len(nx_subgraph.edges()) == 1: continue
+            if len(rx_subgraph.edges()) == 1: continue
 
             # otherwise, add all wires from input nodes
-            graph_wires.update({ node.wire for node in nx_subgraph if node.type == "in" })
+            graph_wires.update({ node.wire for node in rx_subgraph if node.type == "in" })
 
     # construct map from old bits to new ones
     # qiskit refuses to construct empty registers, so we have to cover a few possible cases...
@@ -123,6 +123,26 @@ def cut_circuit(circuit, cuts, qreg_name = "q", creg_name = "c"):
     new_wires = iter(new_register)
     graph = qs.converters.circuit_to_dag(circuit.copy())
     graph.add_qreg(new_register)
+    node_idx = { node : idx for node, idx in zip(graph._multi_graph.nodes(),
+                                                 graph._multi_graph.node_indexes()) }
+    def _add_edge(node1, node2, **kwargs):
+        graph._multi_graph.add_edge(node_idx[node1], node_idx[node2], kwargs)
+    def _remove_edge(node1, node2, data = None):
+        idx1, idx2 = node_idx[node1], node_idx[node2]
+        # todo: remove "not data"
+        if data is None or len(graph._multi_graph.get_all_edge_data(idx1, idx2)) == 1:
+            # there is only one edge between the given nodes
+            graph._multi_graph.remove_edge(idx1, idx2)
+        else:
+            # there are multiple edges between the given nodes
+            # determine the index of the given edge and remove it by index
+            edge_iterator = zip(graph._multi_graph.edge_list(),
+                                graph._multi_graph.edges())
+            for edge_idx, ( ( _idx1, _idx2 ), _data ) in enumerate(edge_iterator):
+                if _idx1 != idx1 or _idx2 != idx2: continue
+                if all( _data[key] == data[key] for key in data.keys() ):
+                    graph._multi_graph.remove_edge_from_index(edge_idx)
+                    break
 
     # TODO: deal with barriers properly
     # barriers currently interfere with splitting a graph into subgraphs
@@ -143,47 +163,44 @@ def cut_circuit(circuit, cuts, qreg_name = "q", creg_name = "c"):
         cut_node = wire_nodes[cut_location]
 
         # identify all nodes downstream of this one
-        cut_descendants = nx.descendants(graph._multi_graph, cut_node)
+        cut_descendants = graph.descendants(cut_node)
 
         # identify the new wire to use
         new_wire = next(new_wires)
         new_wire_in = terminal_node(graph, new_wire, "in")
         new_wire_out = terminal_node(graph, new_wire, "out")
-        graph._multi_graph.remove_edge(new_wire_in, new_wire_out)
+        _remove_edge(new_wire_in, new_wire_out)
 
         # replace all edges on this wire as appropriate
-        for edge in [ edge[:2] for edge in graph._multi_graph.edges(data = True)
-                      if edge[2]["wire"] == cut_wire ]:
+        for edge in graph.edges():
+            if edge[2]["wire"] != cut_wire: continue
 
             # if this edge ends at the node at which we're cutting, splice in the new wire
             if cut_wire in edge[0].qargs and edge[1] == cut_node:
-                graph._multi_graph.remove_edge(*edge)
-                graph._multi_graph.add_edge(edge[0], cut_wire_out,
-                                            name = f"{cut_wire.register.name}[{cut_wire.index}]",
-                                            wire = cut_wire)
-                graph._multi_graph.add_edge(new_wire_in, edge[1],
-                                            name = f"{new_wire.register.name}[{new_wire.index}]",
-                                            wire = new_wire)
+                _remove_edge(*edge[:2])
+                _add_edge(edge[0], cut_wire_out,
+                          name = f"{cut_wire.register.name}[{cut_wire.index}]",
+                          wire = cut_wire)
+                _add_edge(new_wire_in, edge[1],
+                          name = f"{new_wire.register.name}[{new_wire.index}]",
+                          wire = new_wire)
                 continue # we are definitely done with this edge
 
             # fix downstream references to the cut wire (in all edges)
             if edge[1] in cut_descendants:
-                # there may be multiple edges between the nodes in `edge`,
-                # so first figure out which one we need to cut
-                edge_data = graph._multi_graph.get_edge_data(*edge)
-                for edge_key, data in edge_data.items():
-                    if data["wire"] == cut_wire: break
-                graph._multi_graph.remove_edge(*edge, edge_key)
-                graph._multi_graph.add_edge(*edge,
-                                            name = f"{new_wire.register.name}[{new_wire.index}]",
-                                            wire = new_wire)
+                # there may be multiple edges between the nodes in `edge`
+                # so pass all data to `_remove_edge` to remove the correct edge
+                _remove_edge(*edge)
+                _add_edge(*edge[:2],
+                          name = f"{new_wire.register.name}[{new_wire.index}]",
+                          wire = new_wire)
 
             # replace downstream terminal node of the cut wire by that of the new wire
             if edge[1] == cut_wire_out:
-                graph._multi_graph.remove_edge(*edge)
-                graph._multi_graph.add_edge(edge[0], new_wire_out,
-                                            name = f"{new_wire.register.name}[{new_wire.index}]",
-                                            wire = new_wire)
+                _remove_edge(*edge[:2])
+                _add_edge(edge[0], new_wire_out,
+                          name = f"{new_wire.register.name}[{new_wire.index}]",
+                          wire = new_wire)
 
         ### end loop over edges
 
@@ -220,8 +237,8 @@ def cut_circuit(circuit, cuts, qreg_name = "q", creg_name = "c"):
 
     # construct a map from wires in the extended circuit to wires in the subcircuits
     subcirc_wire_map = { extended_circuit_wire : ( subcirc_idx, subcirc_wire )
-                      for subcirc_idx, wire_map in enumerate(subgraph_wire_maps)
-                      for extended_circuit_wire, subcirc_wire in wire_map.items() }
+                         for subcirc_idx, wire_map in enumerate(subgraph_wire_maps)
+                         for extended_circuit_wire, subcirc_wire in wire_map.items() }
 
     # construct a path map for wires in the original circuit through subcirc wires
     wire_path_map = { circuit_wire : tuple( subcirc_wire_map[wire] for wire in path )
