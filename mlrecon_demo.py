@@ -4,6 +4,8 @@
 
 import itertools, numpy, qiskit
 
+print(qiskit.__version__)
+
 import circuit_cutter
 import mlrecon_methods as ml
 
@@ -28,6 +30,11 @@ print_circuits = True
 ##########################################################################################
 
 circuit, cuts = ml.build_circuit_with_cuts(circuit_type, layers, qubits, frag_num, seed)
+print('circuit:')
+print(circuit)
+print('cuts:')
+print(cuts)
+
 fragments, wire_path_map = circuit_cutter.cut_circuit(circuit, cuts)
 fragment_cuts = ml.fragment_cuts(frag_num, wire_path_map)
 

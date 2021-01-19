@@ -70,9 +70,11 @@ def trimmed_graph(graph, graph_wires = None, qreg_name = "q", creg_name = "c"):
     # construct map from old bits to new ones
     # qiskit refuses to construct empty registers, so we have to cover a few possible cases...
     old_qubits = [ wire for wire in graph_wires
-                   if type(wire.register) is qs.circuit.quantumregister.QuantumRegister ]
+                   if type(wire.register) is qs.circuit.quantumregister.QuantumRegister \
+                        or type(wire.register) is qs.circuit.quantumregister.AncillaRegister]
     old_clbits = [ wire for wire in graph_wires
                    if type(wire.register) is qs.circuit.classicalregister.ClassicalRegister ]
+
     if len(old_qubits) > 0 and len(old_clbits) > 0:
         new_qubits = qs.QuantumRegister(len(old_qubits), qreg_name)
         new_clbits = qs.ClassicalRegister(len(old_clbits), creg_name)
