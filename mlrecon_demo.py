@@ -12,10 +12,10 @@ numpy.set_printoptions(linewidth = 200)
 shots = 10**6
 
 # should be "GHZ", "cascade", "dense", or "clustered"
-circuit_type = "clustered"
+circuit_type = "GHZ"
 layers = 1 # number of gate layers
 
-qubits = 9 # number of qubits
+qubits = 6 # number of qubits
 frag_num = 3 # number of fragments
 
 simulation_backend = "qasm_simulator"

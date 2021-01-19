@@ -106,7 +106,7 @@ def identify_frag_targets(wire_path_map):
 
 # perform partial quantum tomography on a circuit and return the corresponding raw data
 def partial_tomography(circuit, prep_qubits, meas_qubits, shots,
-                       tomography_backend = "qasm_simulator", prep_basis = "SIC",
+                       tomography_backend = "qasm_simulator", prep_basis = "Pauli",
                        monitor_jobs = False):
     if prep_qubits == None: perp_qubits = []
     if meas_qubits == None: meas_qubits = []
@@ -122,6 +122,13 @@ def partial_tomography(circuit, prep_qubits, meas_qubits, shots,
     meas_qubits = list(map(_qubit_index, meas_qubits))
 
     # define preparation states and measurement bases
+    # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    # todo: fix issues with SIC basis
+    # for debugging, run mlrecom_demo.py with GHZ circuit, 6 qubits, 3 fragments
+    if not prep_basis == "Pauli":
+        print("error: preparation bases other than 'Pauli' not supported at the moment")
+        exit()
+    # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     if prep_basis == "Pauli":
         prep_states = [ "Zp", "Zm", "Xp", "Yp" ]
     elif prep_basis == "SIC":
@@ -203,7 +210,7 @@ def organize_tomography_data(raw_data_collection, prep_qubits, meas_qubits):
 # perform process tomography on all fragments and return the corresponding data
 def collect_fragment_data(fragments, wire_path_map, shots,
                           tomography_backend = "qasm_simulator",
-                          prep_basis = "SIC", monitor_jobs = False):
+                          prep_basis = "Pauli", monitor_jobs = False):
     frag_targets = identify_frag_targets(wire_path_map)
     frag_raw_data = [ partial_tomography(fragment,
                                          frag_targets[idx].get("prep"),
