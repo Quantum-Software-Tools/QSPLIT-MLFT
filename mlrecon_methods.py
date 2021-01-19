@@ -5,8 +5,10 @@
 import ast, itertools, numpy, scipy, qiskit, tensornetwork
 from qiskit.tools import monitor
 
-state_keys = { "Pauli" : [ "Zp", "Zm", "Xp", "Xm", "Yp", "Ym" ],
-               "SIC" : [ "S0", "S1", "S2", "S3" ] }
+prep_state_keys = { "Pauli" : [ "Zp", "Zm", "Xp", "Yp" ],
+                    "SIC" : [ "S0", "S1", "S2", "S3" ] }
+meas_state_keys = { "Pauli" : [ "Zp", "Zm", "Xp", "Xm", "Yp", "Ym" ],
+                    "SIC" : [ "S0", "S1", "S2", "S3" ] }
 
 # get the quantum state prepared by a circuit
 def get_statevector(circuit):
@@ -124,10 +126,7 @@ def partial_tomography(circuit, prep_qubits, meas_qubits, shots, prep_basis,
     meas_qubits = list(map(_qubit_index, meas_qubits))
 
     # define preparation states and measurement bases
-    if prep_basis == "Pauli":
-        prep_states = [ "Zp", "Zm", "Xp", "Yp" ]
-    elif prep_basis == "SIC":
-        prep_states = state_keys["SIC"]
+    prep_states = prep_state_keys[prep_basis]
     meas_ops = [ "Z", "X", "Y" ]
 
     # collect preparation / measurement labels for all circuit variants
@@ -199,8 +198,8 @@ def organize_tomography_data(raw_data_collection, prep_qubits, meas_qubits, prep
                 organized_data[final_bits][count_label] = counts
 
     # add zero count data for output strings with missing prep/meas combinations
-    prep_labels = itertools.product(state_keys[prep_basis], repeat = len(prep_qubits))
-    meas_states = itertools.product(state_keys["Pauli"], repeat = len(meas_qubits))
+    prep_labels = itertools.product(prep_state_keys[prep_basis], repeat = len(prep_qubits))
+    meas_states = itertools.product(meas_state_keys["Pauli"], repeat = len(meas_qubits))
     count_labels = list(itertools.product(prep_labels, meas_states))
     for bits in organized_data.keys():
         if len(organized_data[bits]) == len(count_labels): continue
