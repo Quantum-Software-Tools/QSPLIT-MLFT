@@ -5,6 +5,9 @@
 import ast, itertools, numpy, scipy, qiskit, tensornetwork
 from qiskit.tools import monitor
 
+state_keys = { "Pauli" : [ "Zp", "Zm", "Xp", "Xm", "Yp", "Ym" ],
+               "SIC" : [ "S0", "S1", "S2", "S3" ] }
+
 # get the quantum state prepared by a circuit
 def get_statevector(circuit):
     simulator = qiskit.Aer.get_backend("statevector_simulator")
@@ -105,9 +108,8 @@ def identify_frag_targets(wire_path_map):
     return frag_targets
 
 # perform partial quantum tomography on a circuit and return the corresponding raw data
-def partial_tomography(circuit, prep_qubits, meas_qubits, shots,
-                       tomography_backend = "qasm_simulator", prep_basis = "Pauli",
-                       monitor_jobs = False):
+def partial_tomography(circuit, prep_qubits, meas_qubits, shots, prep_basis,
+                       tomography_backend = "qasm_simulator", monitor_jobs = False):
     if prep_qubits == None: perp_qubits = []
     if meas_qubits == None: meas_qubits = []
     if prep_qubits == "all": prep_qubits = circuit.qubits
@@ -122,17 +124,10 @@ def partial_tomography(circuit, prep_qubits, meas_qubits, shots,
     meas_qubits = list(map(_qubit_index, meas_qubits))
 
     # define preparation states and measurement bases
-    # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    # todo: fix issues with SIC basis
-    # for debugging, run mlrecom_demo.py with GHZ circuit, 6 qubits, 3 fragments
-    if not prep_basis == "Pauli":
-        print("error: preparation bases other than 'Pauli' not supported at the moment")
-        exit()
-    # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     if prep_basis == "Pauli":
         prep_states = [ "Zp", "Zm", "Xp", "Yp" ]
     elif prep_basis == "SIC":
-        prep_states = [ "S0", "S1", "S2", "S3" ]
+        prep_states = state_keys["SIC"]
     meas_ops = [ "Z", "X", "Y" ]
 
     # collect preparation / measurement labels for all circuit variants
@@ -169,7 +164,7 @@ def partial_tomography(circuit, prep_qubits, meas_qubits, shots,
 #       --> (2) prepared / measured state labels
 #       --> (3) observed counts, i.e.
 # { <final bitstring> : { <prepared_measured_states> : <counts> } }
-def organize_tomography_data(raw_data_collection, prep_qubits, meas_qubits):
+def organize_tomography_data(raw_data_collection, prep_qubits, meas_qubits, prep_basis):
     def _qubit_index(qubit):
         if type(qubit) is int: return qubit
         else: return qubit.index
@@ -201,16 +196,24 @@ def organize_tomography_data(raw_data_collection, prep_qubits, meas_qubits):
                 count_label = ( prep_label, meas_state )
                 if final_bits not in organized_data:
                     organized_data[final_bits] = {}
-                if count_label not in organized_data[final_bits]:
-                    organized_data[final_bits][count_label] = 0
-                organized_data[final_bits][count_label] += counts
+                organized_data[final_bits][count_label] = counts
+
+    # add zero count data for output strings with missing prep/meas combinations
+    prep_labels = itertools.product(state_keys[prep_basis], repeat = len(prep_qubits))
+    meas_states = itertools.product(state_keys["Pauli"], repeat = len(meas_qubits))
+    count_labels = list(itertools.product(prep_labels, meas_states))
+    for bits in organized_data.keys():
+        if len(organized_data[bits]) == len(count_labels): continue
+        for count_label in count_labels:
+            if count_label not in organized_data[bits]:
+                organized_data[bits][count_label] = 0
 
     return organized_data
 
 # perform process tomography on all fragments and return the corresponding data
 def collect_fragment_data(fragments, wire_path_map, shots,
                           tomography_backend = "qasm_simulator",
-                          prep_basis = "Pauli", monitor_jobs = False):
+                          prep_basis = "SIC", monitor_jobs = False):
     frag_targets = identify_frag_targets(wire_path_map)
     frag_raw_data = [ partial_tomography(fragment,
                                          frag_targets[idx].get("prep"),
@@ -222,7 +225,8 @@ def collect_fragment_data(fragments, wire_path_map, shots,
 
     return [ organize_tomography_data(raw_data,
                                       frag_targets[idx].get("prep"),
-                                      frag_targets[idx].get("meas"))
+                                      frag_targets[idx].get("meas"),
+                                      prep_basis = prep_basis)
              for idx, raw_data in enumerate(frag_raw_data) ]
 
 ##########################################################################################
@@ -282,7 +286,7 @@ def direct_fragment_model(tomography_data, discard_poor_data = False, rank_cutof
         if discard_poor_data:
             # if our system of equations defining this block of the choi matrix
             #   is underdetermined, don't bother fitting
-            degrees_of_freedom = len(set(prep_labels)) * 4**meas_qubit_num
+            degrees_of_freedom = 4**( prep_qubit_num + meas_qubit_num )
             if len(fixed_bit_data) < degrees_of_freedom:
                 print(f"discarding {sum(state_counts)} counts that define" +
                       " an underdetermined system of equations")
