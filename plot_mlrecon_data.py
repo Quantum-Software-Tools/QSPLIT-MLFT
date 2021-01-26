@@ -229,6 +229,16 @@ for figure, axes, ylabel in [ ( figure_avg, axes_avg, r"$\mathcal{I}$" ),
         axis.yaxis.set_ticks(major_tick_values)
         axis.yaxis.set_ticks(minor_tick_values, minor = True)
 
+    # label individual panels
+    bbox = dict( boxstyle = "round", facecolor = "lightgray", alpha = 1)
+    kwargs = dict( bbox = bbox, fontweight = "bold" )
+    axes[0,0].text(0.1, 0.1, "a", transform = axes[0,0].transAxes, **kwargs, va = "bottom")
+    axes[0,1].text(0.1, 0.1, "b", transform = axes[0,1].transAxes, **kwargs, va = "bottom")
+    axes[0,2].text(0.1, 0.1, "c", transform = axes[0,2].transAxes, **kwargs, va = "bottom")
+    axes[1,0].text(0.1, 0.9, "d", transform = axes[1,0].transAxes, **kwargs, va = "top")
+    axes[1,1].text(0.1, 0.9, "e", transform = axes[1,1].transAxes, **kwargs, va = "top")
+    axes[1,2].text(0.1, 0.9, "f", transform = axes[1,2].transAxes, **kwargs, va = "top")
+
 # place legend outside of plot and save
 handles, labels = axes_avg[0,0].get_legend_handles_labels()
 figure_avg.legend(handles, labels, loc = "center left", bbox_to_anchor = (0.96,0.52))
