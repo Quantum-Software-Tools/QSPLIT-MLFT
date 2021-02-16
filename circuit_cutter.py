@@ -110,21 +110,22 @@ def trimmed_graph(graph, graph_wires = None, qreg_name = "q", creg_name = "c"):
 #      { < wire in original circuit > :
 #        [ ( < index of subcircuit  >, < wire in subcircuit > ) ] }
 def cut_circuit(circuit, cuts, qreg_name = "q", creg_name = "c"):
-    if len(cuts) == 0: return [ circuit.copy() ], {}
-
     # assert that all cut wires are part of a quantum register
-    assert(all( type(wire) is qs.circuit.quantumregister.Qubit
-                for wire, _ in cuts ))
+    assert(all( type(wire) is qs.circuit.quantumregister.Qubit for wire, _ in cuts ))
+
+    # construct graph for this circuit
+    graph = qs.converters.circuit_to_dag(circuit.copy())
 
     # all wires in the original circuit
     circuit_wires = circuit.qubits + circuit.clbits
 
     # initialize new qubit register and construct total circuit graph
-    new_reg_name = "_".join(set( wire.register.prefix for wire in circuit_wires )) + "_new"
-    new_register = qs.QuantumRegister(len(cuts),new_reg_name)
-    new_wires = iter(new_register)
-    graph = qs.converters.circuit_to_dag(circuit.copy())
-    graph.add_qreg(new_register)
+    if len(cuts) > 0:
+        old_reg_names = set( wire.register.prefix for wire in circuit_wires )
+        new_reg_name = "_".join(old_reg_names) + "_new"
+        new_register = qs.QuantumRegister(len(cuts),new_reg_name)
+        new_wires = iter(new_register)
+        graph.add_qreg(new_register)
     node_idx = { node : idx for node, idx in zip(graph._multi_graph.nodes(),
                                                  graph._multi_graph.node_indexes()) }
     def _add_edge(node1, node2, **kwargs):

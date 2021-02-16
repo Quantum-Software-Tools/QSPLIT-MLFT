@@ -81,6 +81,11 @@ def channel_distance(rho, sigma):
 # methods for peforming process tomography and organizing associated data
 ##########################################################################################
 
+# number of fragments
+def get_frag_num(wire_path_map):
+    return len(set( frag_wire[0] for path in wire_path_map.values()
+                    for frag_wire in path ))
+
 # identify all stitches in a cut-up circuit, in dictionary format:
 #   { <exit wire> : <init wire> }
 def identify_stitches(wire_path_map):
@@ -98,13 +103,11 @@ def identify_stitches(wire_path_map):
 # identify preparation / meauserment qubits for all fragments
 def identify_frag_targets(wire_path_map):
     stitches = identify_stitches(wire_path_map)
-    frag_targets = {}
+    frag_targets = [ { "meas" : tuple(), "prep" : tuple() }
+                     for _ in range(get_frag_num(wire_path_map)) ]
     for meas_frag_qubit, prep_frag_qubit in stitches.items():
         meas_frag, meas_qubit = meas_frag_qubit
         prep_frag, prep_qubit = prep_frag_qubit
-        for frag in [ meas_frag, prep_frag ]:
-            if frag not in frag_targets:
-                frag_targets[frag] = { "meas" : (), "prep" : () }
         frag_targets[meas_frag]["meas"] += (meas_qubit,)
         frag_targets[prep_frag]["prep"] += (prep_qubit,)
     return frag_targets
@@ -675,8 +678,9 @@ def build_circuit_with_cuts(circuit_type, layers, qubits, fragments, seed = 0):
 
     return circuit, cuts
 
-def fragment_cuts(frag_num, wire_path_map):
-    fragment_cuts = [ { "prep" : 0, "meas" : 0 } for _ in range(frag_num) ]
+def fragment_cuts(wire_path_map):
+    fragment_cuts = [ { "prep" : 0, "meas" : 0 }
+                      for _ in range(get_frag_num(wire_path_map)) ]
     for cut_meas, cut_prep in identify_stitches(wire_path_map).items():
         fragment_cuts[cut_meas[0]]["meas"] += 1
         fragment_cuts[cut_prep[0]]["prep"] += 1
