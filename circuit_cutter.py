@@ -8,8 +8,8 @@ import copy
 
 ##########################################################################################
 # this script cuts a quantum circuit built in qiskit
-# cutting is performed using method described in arxiv.org/abs/1904.00102
-# developed using qiskit version 0.12.0
+# cutting is performed using method described in arxiv.org/abs/2005.12702
+# developed using qiskit version 0.16.1
 ##########################################################################################
 
 # get the terminal node of a qubit in a graph
@@ -19,11 +19,8 @@ def terminal_node(graph, qubit, termination_type):
         if node.type == termination_type and node.wire == qubit:
             return node
 
-# accept a circuit graph (i.e. in DAG form), and return a list of tuples:
-# [ (< subgraph >, < list of wires used in this subgraph >) ]
-# note that the subgraph circuits act on the full registers of the original graph circuit
-def disjoint_subgraphs(graph, zip_output = True):
-
+# accept a circuit graph (in DAG form), and return a list of connected subgraphs
+def disjoint_subgraphs(graph):
     rx_graph = graph._multi_graph
 
     # identify all subgraphs of nodes
@@ -41,62 +38,39 @@ def disjoint_subgraphs(graph, zip_output = True):
                         for rx_node in rx_subgraph.nodes() ):
                 subgraph.remove_op_node(node)
 
-        # identify wires used in this subgraph circuit
-        wires = { node.wire for node in rx_subgraph.nodes() if node.type == "in" }
+        # ignore trivial subgraphs
+        if len(subgraph.op_nodes()) == 0: continue
 
         subgraphs.append(subgraph)
-        subgraph_wires.append(wires)
 
-    if zip_output: return zip(subgraphs, subgraph_wires)
-    else: return subgraphs, subgraph_wires
+    return subgraphs
 
-# "trim" a circuit graph (i.e. in DAG form) by eliminating unused bits
-# optionally accept a set of all used wires (with a promise that the set is correct)
-# return trimmed graph, as well as a dictionary mapping old wires to new ones
-def trimmed_graph(graph, graph_wires = None, qreg_name = "q", creg_name = "c"):
-    # if we were not told which wires are used, figure it out
-    if graph_wires is None:
-        graph_wires = set()
-
-        # identify all subgraphs
-        rx_subgraphs = rx.connected_component_subgraphs(graph.to_networkx().to_undirected())
-        for rx_subgraph in rx_subgraphs:
-            # if there is only one edge in this subgraph, ignore it; it is an empty wire
-            if len(rx_subgraph.edges()) == 1: continue
-
-            # otherwise, add all wires from input nodes
-            graph_wires.update({ node.wire for node in rx_subgraph if node.type == "in" })
+# "trim" a circuit graph (in DAG form) by eliminating unused bits
+# return trimmed graph, and a dictionary mapping old wires to new ones
+def trimmed_graph(graph, qreg_name = "q", creg_name = "c"):
+    # idenify wires used in this graph
+    wires = set.union(*[ set(node.qargs) for node in graph.op_nodes() ])
 
     # construct map from old bits to new ones
-    # qiskit refuses to construct empty registers, so we have to cover a few possible cases...
-    old_qubits = [ wire for wire in graph_wires
-                   if type(wire.register) is qs.circuit.quantumregister.QuantumRegister
-                   or type(wire.register) is qs.circuit.quantumregister.AncillaRegister ]
-    old_clbits = [ wire for wire in graph_wires
-                   if type(wire.register) is qs.circuit.classicalregister.ClassicalRegister ]
+    old_qbits = [ wire for wire in wires
+                  if type(wire.register) is qs.circuit.quantumregister.QuantumRegister
+                  or type(wire.register) is qs.circuit.quantumregister.AncillaRegister ]
+    old_cbits = [ wire for wire in wires
+                  if type(wire.register) is qs.circuit.classicalregister.ClassicalRegister ]
 
-    if len(old_qubits) > 0 and len(old_clbits) > 0:
-        new_qubits = qs.QuantumRegister(len(old_qubits), qreg_name)
-        new_clbits = qs.ClassicalRegister(len(old_clbits), creg_name)
-        trimmed_circuit = qs.QuantumCircuit(new_qubits, new_clbits)
-    elif len(old_qubits) > 0 and len(old_clbits) == 0:
-        new_qubits = qs.QuantumRegister(len(old_qubits), qreg_name)
-        new_clbits = []
-        trimmed_circuit = qs.QuantumCircuit(new_qubits)
-    elif len(old_qubits) == 0 and len(old_clbits) > 0:
-        new_qubits = []
-        new_clbits = qs.ClassicalRegister(len(old_clbits), creg_name)
-        trimmed_circuit = qs.QuantumCircuit(new_clbits)
-    else:
-        trimmed_circuit = qs.QuantumCircuit()
+    new_qbits = qs.QuantumRegister(len(old_qbits), qreg_name) if len(old_qbits) > 0 else []
+    new_cbits = qs.ClassicalRegister(len(old_cbits), creg_name) if len(old_cbits) > 0 else []
 
-    register_map = list(zip(old_qubits, new_qubits)) + list(zip(old_clbits, new_clbits))
+    registers = [ reg for reg in [ new_qbits, new_cbits ] if reg != [] ]
+    trimmed_circuit = qs.QuantumCircuit(*registers)
+
+    register_map = list(zip(old_qbits, new_qbits)) + list(zip(old_cbits, new_cbits))
     register_map = { old_bit : new_bit for old_bit, new_bit in register_map }
 
     # add all operations to the trimmed circuit
     for node in graph.topological_op_nodes():
-        new_qargs = [ register_map[qubit] for qubit in node.qargs ]
-        new_cargs = [ register_map[clbit] for clbit in node.cargs ]
+        new_qargs = [ register_map[qbit] for qbit in node.qargs ]
+        new_cargs = [ register_map[cbit] for cbit in node.cargs ]
         trimmed_circuit.append(node.op, qargs = new_qargs, cargs = new_cargs)
 
     return qs.converters.circuit_to_dag(trimmed_circuit), register_map
@@ -223,12 +197,12 @@ def cut_circuit(circuit, cuts, qreg_name = "q", creg_name = "c"):
     ### end loop over cuts
 
     # split the total circuit graph into subgraphs
-    subgraphs, subgraph_wires = disjoint_subgraphs(graph, zip_output = False)
+    subgraphs = disjoint_subgraphs(graph)
 
     # trim subgraphs, eliminating unused bits
     trimmed_subgraphs, subgraph_wire_maps \
-        = zip(*[ trimmed_graph(subgraph, wires, qreg_name, creg_name)
-                 for subgraph, wires in zip(subgraphs, subgraph_wires) ])
+        = zip(*[ trimmed_graph(subgraph, qreg_name, creg_name)
+                 for subgraph in subgraphs ])
 
     # construct a path map for bits (both quantum and classical) through
     #   the "extended circuit" (i.e. original circuit with ancillas)
