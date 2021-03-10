@@ -29,11 +29,7 @@ print_circuits = True
 
 circuit, cuts = ml.build_circuit_with_cuts(circuit_type, layers, qubits, frag_num, seed)
 fragments, wire_path_map = circuit_cutter.cut_circuit(circuit, cuts)
-fragment_cuts = ml.fragment_cuts(wire_path_map)
-
-def variants(cuts):
-    return 4**cuts["prep"] * 3**cuts["meas"]
-total_variants = sum( variants(cuts) for cuts in fragment_cuts )
+total_variants = ml.fragment_variants(wire_path_map)
 
 if print_circuits:
     print("total circuit:")
@@ -46,6 +42,7 @@ if print_circuits:
         print(f"fragment {idx}:")
         print(fragment)
         print()
+    fragment_cuts = ml.fragment_cuts(wire_path_map)
     print("fragment_index, prep_cuts, meas_cuts:")
     for frag_idx, frag_cuts in enumerate(fragment_cuts):
         print(frag_idx, frag_cuts["prep"], frag_cuts["meas"])

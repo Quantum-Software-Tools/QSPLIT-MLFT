@@ -199,15 +199,34 @@ def cut_circuit(circuit, cuts, qreg_name = "q", creg_name = "c"):
     # split the total circuit graph into subgraphs
     subgraphs = disjoint_subgraphs(graph)
 
-    # trim subgraphs, eliminating unused bits
+    # trim subgraphs, eliminating unused bits within each subgraph
     trimmed_subgraphs, subgraph_wire_maps \
         = zip(*[ trimmed_graph(subgraph, qreg_name, creg_name)
                  for subgraph in subgraphs ])
 
+    # if necessary, add a trivial circuit for qubits that are never used
+    unused_qubits = []
+    for qubit in circuit.qubits:
+        qubit_found = False
+        for node in graph.topological_op_nodes():
+            if qubit in node.qargs:
+                qubit_found = True
+                continue
+        if qubit_found: continue
+        unused_qubits.append(qubit)
+    if unused_qubits:
+        print("WARNING: some qubits are entirely unused")
+        print("unused qubits:",unused_qubits)
+        qreg = qs.QuantumRegister(len(unused_qubits), qreg_name)
+        empty_circuit = qs.QuantumCircuit(qreg)
+        register_map = { old_bit : new_bit
+                         for old_bit, new_bit in zip(unused_qubits, qreg) }
+        trimmed_subgraphs += ( qs.converters.circuit_to_dag(empty_circuit), )
+        subgraph_wire_maps += ( register_map, )
+
     # construct a path map for bits (both quantum and classical) through
     #   the "extended circuit" (i.e. original circuit with ancillas)
-    bit_path_map = { circuit_wire : [ circuit_wire ]
-                     for circuit_wire in circuit_wires }
+    bit_path_map = { circuit_wire : [ circuit_wire ] for circuit_wire in circuit_wires }
     for circuit_wire, path in bit_path_map.items():
         while path[-1] in stitches.keys():
             path.append(stitches[path[-1]])

@@ -685,3 +685,7 @@ def fragment_cuts(wire_path_map):
         fragment_cuts[cut_meas[0]]["meas"] += 1
         fragment_cuts[cut_prep[0]]["prep"] += 1
     return fragment_cuts
+
+def fragment_variants(wire_path_map):
+    def _variants(cuts): return 4**cuts["prep"] * 3**cuts["meas"]
+    return sum( _variants(frag_cuts) for frag_cuts in fragment_cuts(wire_path_map) )
