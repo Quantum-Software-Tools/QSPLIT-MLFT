@@ -1,6 +1,6 @@
 # Circuit cutting with maximum likelihood fragment tomography
 
-This repository contains the codes used for numerical experiments in [this work](https://arxiv.org/abs/2005.12702) on circuit cutting.  *Disclaimer: I (Michael A. Perlin) apologize in advance for my pedestrian presentation of the contents in this repository.  I am merely a physicist, with little training in "proper" code maintenance and documentation.*
+This repository contains the codes used for numerical experiments in [this work](https://www.nature.com/articles/s41534-021-00390-6) (also on the [arXiv](https://arxiv.org/abs/2005.12702)) on circuit cutting.  *Disclaimer: I (Michael A. Perlin) apologize in advance for my pedestrian presentation of the contents in this repository.  I am merely a physicist, with little training in "proper" code maintenance and documentation.*
 
 In a nutshell, circuit cutting is compiler-level quantum computing a technique for reducing the size of quantum circuits and mitigating the buildup of quantum errors.  The benefits of circuit cutting come at the cost of a classical computing overhead that is exponential in the number of "cuts" that are made to a circuit.  This technique is therefore best suited for circuits with a "clustered" structure that allows them to be split into sub-circuits using a small number of "cuts".
 
@@ -21,7 +21,7 @@ The contents of this repository are as follows (all codes written in Python 3):
 * `mlrecon_methods.py`: this file contains the primary methods used for maximum likelihood fragment tomography, as well as a tensor-network-based method for recombining fragment models to reconstruct the "full" (pre-cut) circuit output.  Also included here are methods to construct some simple quantum circuits that are amenable to circuit cutting, such as the "clustered random unitary circuits" used in our paper.
 * `mlrecon_demo.py`: this is a "demo" file for using the methods in `circuit_cutter.py` and `mlrecon_methods.py`.  By default, this file will build a clustered random unitary circuit, and compare the fidelity of estimating this circuit's output using
   1. full circuit execution
-  2. the [original](https://journals.aps.org/prl/accepted/cf075YabH641a287f098406380a7b05df8764bce0) circuit cutting method (also on the [arXiv](https://arxiv.org/abs/1904.00102))
+  2. the [original](https://journals.aps.org/prl/abstract/10.1103/PhysRevLett.125.150504) circuit cutting method (also on the [arXiv](https://arxiv.org/abs/1904.00102))
   3. our circuit cutting method (maximum likelihood fragment tomography).
 * `collect_mlrecon_data.py`: this script simulates circuits with varying qubit, fragment, and shot numbers, and computes the fidelity with which these circuits' outputs can be estimated using the same methods as in the demo script (`mlrecon_demo.py`).  This is the script that was used to collect all simulation data for our paper.
 * `plot_mlrecon_data.py`: this script plots the data collected by `collect_mlrecon_data.py` to make the simulation figures in our paper.
