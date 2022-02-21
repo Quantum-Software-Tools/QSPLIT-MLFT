@@ -26,6 +26,4 @@ The contents of this repository are as follows (all codes written in Python 3):
 * `collect_mlrecon_data.py`: this script simulates circuits with varying qubit, fragment, and shot numbers, and computes the fidelity with which these circuits' outputs can be estimated using the same methods as in the demo script (`mlrecon_demo.py`).  This is the script that was used to collect all simulation data for our paper.
 * `plot_mlrecon_data.py`: this script plots the data collected by `collect_mlrecon_data.py` to make the simulation figures in our paper.
 
-The primary dependencies of this repository are [Qiskit](https://qiskit.org/) v0.16.1, [TensorNetwork](https://github.com/google/TensorNetwork) v0.4.1, as well as some standard Python packages such as NumPy and SciPy.
-
-For reasons that escape me, Qiskit v0.16.1 is installed through pip via `pip install qiskit==0.23.2`.  You can check your version of Qiskit from the command line via `python3 -c "import qiskit; print(qiskit.__version__)"`.
+The codes in this repository were last tested with Python version 3.8.12.  Dependencies are specified in `requirements.txt`.
