@@ -77,7 +77,7 @@ for part in full_circuit_result:
 frag_data = ml.collect_fragment_data(fragments, wire_path_map,
                                      shots = shots // total_variants,
                                      tomography_backend = simulation_backend)
-direct_models = ml.direct_fragment_model(frag_data[::-1])
+direct_models = ml.direct_fragment_model(frag_data)
 likely_models = ml.maximum_likelihood_model(direct_models)
 
 direct_recombined_dist = ml.recombine_fragment_models(direct_models, wire_path_map)

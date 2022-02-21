@@ -299,10 +299,6 @@ def direct_fragment_model(tomography_data, discard_poor_data = False, rank_cutof
 
         # trace of the choi matrix we're fitting
         choi_trace = sum(state_counts) / ( 2**prep_qubit_num * 3**meas_qubit_num )
-        print(state_counts)
-        print(prep_meas_states)
-        print(choi_trace)
-        exit()
 
         # collect data for fitting procedure, in which we will find a vector choi_fit
         #   that minimizes | state_matrix.conj() @ choi_fit - state_counts |
