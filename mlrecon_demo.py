@@ -6,7 +6,6 @@ import itertools, numpy, qiskit
 import circuit_cutter
 import mlrecon_methods as ml
 
-print("qiskit version:",qiskit.__version__)
 numpy.set_printoptions(linewidth = 200)
 
 shots = 10**6
