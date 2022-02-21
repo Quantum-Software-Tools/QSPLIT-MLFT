@@ -297,22 +297,17 @@ def direct_fragment_model(tomography_data, discard_poor_data = False, rank_cutof
         # total number of cut qubits
         cut_qubit_num = prep_qubit_num + meas_qubit_num
 
-        # trace of the choi matrix we're fitting
-        choi_trace = sum(state_counts) / ( 2**prep_qubit_num * 3**meas_qubit_num )
-
         # collect data for fitting procedure, in which we will find a vector choi_fit
         #   that minimizes | state_matrix.conj() @ choi_fit - state_counts |
         state_matrix = numpy.array([ target_labels_to_matrix(states).flatten()
-                                     for states in prep_meas_states ] +
-                                   [ numpy.eye(2**cut_qubit_num).flatten() ])
-        state_counts = numpy.array(list(state_counts) + [ choi_trace ])
+                                     for states in prep_meas_states ])
+        state_counts = numpy.array(list(state_counts))
 
         # TODO: add count-adjusted weights to fitting procedure
-        choi_fit = scipy.linalg.lstsq(state_matrix.conj(), state_counts,
-                                      cond = rank_cutoff)[0]
+        choi_fit = scipy.linalg.lstsq(state_matrix.conj(), state_counts, cond = rank_cutoff)[0]
 
         # save the fitted choi matrix
-        choi_matrix[final_bits] = choi_fit.reshape(2**cut_qubit_num,2**cut_qubit_num)
+        choi_matrix[final_bits] = choi_fit.reshape(2**cut_qubit_num, 2**cut_qubit_num)
 
     return choi_matrix
 
