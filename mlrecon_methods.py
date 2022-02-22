@@ -280,6 +280,7 @@ def direct_fragment_model(tomography_data, discard_poor_data = False, rank_cutof
     #   where each block corresponds to a unique bitstring
     #   on the "final" outputs of a fragent
     choi_matrix = {}
+    total_shots = 0  # used to normalize the choi matrix
     for final_bits, fixed_bit_data in tomography_data.items():
         prep_meas_states, state_counts = zip(*fixed_bit_data.items())
         prep_labels, meas_labels = zip(*prep_meas_states)
@@ -308,6 +309,13 @@ def direct_fragment_model(tomography_data, discard_poor_data = False, rank_cutof
 
         # save the fitted choi matrix
         choi_matrix[final_bits] = choi_fit.reshape(2**cut_qubit_num, 2**cut_qubit_num)
+
+        total_shots += sum(state_counts)
+
+    # normalize the choi matrix: tr(\tilde\Lambda) = 2**(#[quantum inputs])
+    variants = 4 ** prep_qubit_num * 3 ** meas_qubit_num
+    shots_per_variant = total_shots / variants
+    choi_matrix = {bits : mat/shots_per_variant for bits, mat in choi_matrix.items()}
 
     return choi_matrix
 
