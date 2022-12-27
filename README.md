@@ -1,13 +1,13 @@
 # Circuit cutting with maximum likelihood fragment tomography
 
-This repository contains the codes used for numerical experiments in [this work](https://www.nature.com/articles/s41534-021-00390-6) (also on the [arXiv](https://arxiv.org/abs/2005.12702)) on circuit cutting.  *Disclaimer: I (Michael A. Perlin) apologize in advance for my pedestrian presentation of the contents in this repository.  I am merely a physicist, with little training in "proper" code maintenance and documentation.*
+This repository contains the codes used for numerical experiments in [this work](https://www.nature.com/articles/s41534-021-00390-6) (also on the [arXiv](https://arxiv.org/abs/2005.12702)) on circuit cutting.
 
-In a nutshell, circuit cutting is compiler-level quantum computing a technique for reducing the size of quantum circuits and mitigating the buildup of quantum errors.  The benefits of circuit cutting come at the cost of a classical computing overhead that is exponential in the number of "cuts" that are made to a circuit.  This technique is therefore best suited for circuits with a "clustered" structure that allows them to be split into sub-circuits using a small number of "cuts".
+In a nutshell, circuit cutting is a compiler-level quantum computing a technique for reducing the size of quantum circuits and mitigating the buildup of quantum errors.  The benefits of circuit cutting come at the cost of a classical computing overhead that is exponential in the number of "cuts" that are made to a circuit.  This technique is therefore best suited for circuits with a "clustered" structure that allows them to be split into subcircuits using a small number of "cuts".
 
 The basic idea behind circuit cutting is to
-1. "cut" a quantum circuit into sub-circuits, called *fragments*,
+1. "cut" a quantum circuit into subcircuits, called *fragments*,
 2. run the fragments (and minor variants thereof) on quantum hardware, and then
-3. recombine fragment data via classical post-processing to reconstruct the output of the original circuit.
+3. recombine fragment data via classical post-processing to reconstruct the output of the original circuit.  In the present work, "output" means "probability distribution over the outcomes of measurement in the computational basis".
 
 Our main contributions to circuit cutting are summarized in the abstract of our paper:
 
@@ -15,15 +15,15 @@ Our main contributions to circuit cutting are summarized in the abstract of our 
 
 ### Contents
 
-The contents of this repository are as follows (all codes written in Python 3):
+All codes in this repository are written in Python 3, version `>=3.8.13`.  Python package requirements are specified in `requirements.txt`.
 
-* `circuit_cutting.py`: this file contains methods to cut a quantum circuit (represented by a Qiskit `QuantumCircuit` object) into fragments.
-* `mlrecon_methods.py`: this file contains the primary methods used for maximum likelihood fragment tomography, as well as a tensor-network-based method for recombining fragment models to reconstruct the "full" (pre-cut) circuit output.  Also included here are methods to construct some simple quantum circuits that are amenable to circuit cutting, such as the "clustered random unitary circuits" used in our paper.
-* `mlrecon_demo.py`: this is a "demo" file for using the methods in `circuit_cutter.py` and `mlrecon_methods.py`.  By default, this file will build a clustered random unitary circuit, and compare the fidelity of estimating this circuit's output using
-  1. full circuit execution
-  2. the [original](https://journals.aps.org/prl/abstract/10.1103/PhysRevLett.125.150504) circuit cutting method (also on the [arXiv](https://arxiv.org/abs/1904.00102))
-  3. our circuit cutting method (maximum likelihood fragment tomography).
-* `collect_mlrecon_data.py`: this script simulates circuits with varying qubit, fragment, and shot numbers, and computes the fidelity with which these circuits' outputs can be estimated using the same methods as in the demo script (`mlrecon_demo.py`).  This is the script that was used to collect all simulation data for our paper.
-* `plot_mlrecon_data.py`: this script plots the data collected by `collect_mlrecon_data.py` to make the simulation figures in our paper.
+The contents of this repository are as follows:
 
-The codes in this repository were last tested with Python version 3.8.12.  Dependencies are specified in `requirements.txt`.
+* `circuit_ansatz.py`: this file contains a method to construct the "random clustered circuit" used in [our paper](https://www.nature.com/articles/s41534-021-00390-6), and to identify the locations at which this circuit should be cut.
+* `cutting_methods.py`: this file contains the primary methods used for (a) cutting a circuit into fragments, (b) performing maximum-likelihood fragment tomography, and (c) recombining fragment models to reconstruct the probability distribution over measurement outcomes for the full, uncut circuit.
+* `compute_fidelities.py`: this file can be considered a "demo" script for the methods in `circuit_ansatz.py` and `cutting_methods.py`.  By default, running this file will build a clustered random unitary circuit, and compute the fidelity of estimating this circuit's output using
+  1. full circuit execution,
+  2. the [original](https://journals.aps.org/prl/abstract/10.1103/PhysRevLett.125.150504) circuit cutting method (also on the [arXiv](https://arxiv.org/abs/1904.00102)), and
+  3. the method from [our paper](https://www.nature.com/articles/s41534-021-00390-6), maximum likelihood fragment tomography.
+* `collect_data.py`: this script simulates circuits with varying qubit, fragment, and shot (or repetition) numbers, and computes the fidelity with which these circuits' outputs can be estimated using the same methods as in `compute_fidelities.py`.  This script collects all simulation data for [our paper](https://www.nature.com/articles/s41534-021-00390-6).
+* `plot_data.py`: this script plots the data collected by `collect_data.py` to make the simulation figures in [our paper](https://www.nature.com/articles/s41534-021-00390-6).
