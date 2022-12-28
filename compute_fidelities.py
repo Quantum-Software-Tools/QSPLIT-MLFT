@@ -44,7 +44,6 @@ def get_fidelities(
     num_qubits = len(qubit_order)
 
     # compute the actual probability distribution over measurement outcomes for the circuit
-    actual_probs: npt.NDArray[np.float_]
     actual_probs = np.abs(cirq.final_state_vector(circuit, qubit_order=qubit_order)) ** 2
     actual_probs.shape = (2,) * num_qubits  # reshape into array indexed by bitstrings
 
