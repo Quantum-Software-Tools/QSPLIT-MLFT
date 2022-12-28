@@ -698,7 +698,7 @@ def get_outcome_combiner(
     fragment_keys = list(fragments.keys())
     fragment_outputs = [fragments[key].circuit_outputs for key in fragment_keys]
     contacenated_qubits = functools.reduce(operator.add, fragment_outputs)
-    bit_permutation = [final_qubit_order.index(qubit) for qubit in contacenated_qubits]
+    bit_permutation = [contacenated_qubits.index(qubit) for qubit in final_qubit_order]
 
     def outcome_combiner(fragment_substrings: Dict[str, BitString]) -> BitString:
         """
