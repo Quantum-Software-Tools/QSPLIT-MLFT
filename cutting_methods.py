@@ -238,6 +238,7 @@ def perform_single_fragment_tomography(
     fragment: Fragment,
     prep_basis: PrepBasis = DEFAULT_PREP_BASIS,
     repetitions: Optional[int] = None,
+    seed: cirq.RANDOM_STATE_OR_SEED_LIKE = None,
 ) -> FragmentTomographyData:
     """
     Perform fragment tomography on the given fragment, using the specified tomographically complete
@@ -258,22 +259,34 @@ def perform_single_fragment_tomography(
     circuit_outputs = fragment.circuit_outputs
     qubit_order = circuit_outputs + quantum_outputs
     num_qubits = len(qubit_order)
+    if repetitions:
+        measurement = cirq.measure_each(*qubit_order)
+        simulator = cirq.Simulator(seed=seed)
 
     tomography_data: Dict[BitString, ConditionalFragmentData] = collections.defaultdict(dict)
     for prep_states in itertools.product(get_prep_states(prep_basis), repeat=len(quantum_inputs)):
-        # construct the state at the end of the fragment when preparing the prep_states
-        circuit = cirq.Circuit(prep_state_ops(prep_states, quantum_inputs)) + fragment.circuit
-        prep_fragment_state = cirq.final_state_vector(circuit, qubit_order=qubit_order)
-        for meas_bases in itertools.product(PAULI_OPS, repeat=len(quantum_outputs)):
-            # get the probabilities over measurement outcomes when measuring in the meas_bases
-            basis_circuit = cirq.Circuit(meas_basis_ops(meas_bases, quantum_outputs))
-            final_state = cirq.final_state_vector(
-                basis_circuit, initial_state=prep_fragment_state, qubit_order=qubit_order
-            )
-            probabilities = abs(final_state) ** 2
+        circuit_with_prep = prep_state_ops(prep_states, quantum_inputs) + fragment.circuit
 
-            if repetitions is None:  # collect results into the tomography_data object
-                probabilities.shape = (2,) * num_qubits
+        if not repetitions:
+            # construct the state at the end of the fragment when preparing the prep_states
+            prep_fragment_state = cirq.final_state_vector(
+                circuit_with_prep, qubit_order=qubit_order
+            )
+
+        for meas_bases in itertools.product(PAULI_OPS, repeat=len(quantum_outputs)):
+            # construct sub-circuit to measure in the 'meas_bases'
+            meas_ops = meas_basis_ops(meas_bases, quantum_outputs)
+
+            if not repetitions:
+                # get exact probability distribution over measurement outcomes
+                final_state = cirq.final_state_vector(
+                    cirq.Circuit(meas_ops),
+                    initial_state=prep_fragment_state,
+                    qubit_order=qubit_order,
+                )
+                probabilities = np.reshape(abs(final_state) ** 2, (2,) * num_qubits)
+
+                # collect exact probabilities into the tomography_data object
                 for circuit_outcome in itertools.product([0, 1], repeat=len(circuit_outputs)):
                     for quantum_outcome in itertools.product([0, 1], repeat=len(quantum_outputs)):
                         conditions = (prep_states, meas_bases, quantum_outcome)
@@ -281,20 +294,14 @@ def perform_single_fragment_tomography(
                         tomography_data[circuit_outcome][conditions] = probability
 
             else:  # simulate sampling from the true probability distribution
-                # sample possible measurement outcomes, which are represented by integers
-                outcomes = np.random.choice(
-                    range(probabilities.size), size=repetitions, p=probabilities
-                )
-                # count the number of times each measurement outcome was observed
-                outcome_counter = collections.Counter(outcomes)
+                full_circuit = circuit_with_prep + meas_ops + measurement
+                results = simulator.run(full_circuit, repetitions=repetitions)
+                outcome_counter = results.multi_measurement_histogram(keys=qubit_order)
 
-                # loop over measurement outcomes to collect results into the tomography_data object
+                # collect measurement outcomes into the tomography_data object
                 for outcome, counts in outcome_counter.items():
-                    # convert the integer outcome into bitstrings on circuit/quantum outputs
-                    outcome_string = bin(outcome)[2:].zfill(num_qubits)
-                    outcome_bitstring = tuple(int(bit) for bit in outcome_string)
-                    circuit_outcome = outcome_bitstring[: len(circuit_outputs)]
-                    quantum_outcome = outcome_bitstring[len(circuit_outputs) :]
+                    circuit_outcome = outcome[: len(circuit_outputs)]
+                    quantum_outcome = outcome[len(circuit_outputs) :]
                     # Record the fraction of times we observed this measurement outcome with the
                     # given prep_states/meas_bases.
                     conditions = (prep_states, meas_bases, quantum_outcome)
