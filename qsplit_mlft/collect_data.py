@@ -6,12 +6,12 @@ Author: Michael A. Perlin (github.com/perlinm)
 """
 import os
 
-import circuit_ansatz
-import compute_fidelities
+from qsplit_mlft import circuit_ansatz
+from qsplit_mlft import compute_fidelities
 import numpy as np
 
 
-data_dir = "./data/"
+data_dir = "../data/"
 num_trials = 100  # number of random circuit variants to average over
 
 # fragment numbers to use
