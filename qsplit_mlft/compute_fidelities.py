@@ -7,9 +7,9 @@ Author: Michael A. Perlin (github.com/perlinm)
 import collections
 from typing import Dict, Iterable, Tuple
 
-import circuit_ansatz
+from qsplit_mlft import circuit_ansatz
 import cirq
-import cutting_methods as cm
+from qsplit_mlft import cutting_methods as cm
 import numpy as np
 import numpy.typing as npt
 
