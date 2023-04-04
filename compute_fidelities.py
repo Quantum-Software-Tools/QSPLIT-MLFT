@@ -7,11 +7,12 @@ Author: Michael A. Perlin (github.com/perlinm)
 import collections
 from typing import Dict, Iterable, Tuple
 
-import circuit_ansatz
 import cirq
-import cutting_methods as cm
 import numpy as np
 import numpy.typing as npt
+
+import circuit_ansatz
+import cutting_methods as cm
 
 
 def get_fidelity(

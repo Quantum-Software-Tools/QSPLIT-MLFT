@@ -6,10 +6,10 @@ Author: Michael A. Perlin (github.com/perlinm)
 """
 import os
 
-import circuit_ansatz
-import compute_fidelities
 import numpy as np
 
+import circuit_ansatz
+import compute_fidelities
 
 data_dir = "./data/"
 num_trials = 100  # number of random circuit variants to average over
