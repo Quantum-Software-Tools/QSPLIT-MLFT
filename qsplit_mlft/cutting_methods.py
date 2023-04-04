@@ -34,7 +34,7 @@ MeasBasis = Literal["Z", "X", "Y"]
 PrepStates = Tuple[PrepState, ...]
 MeasBases = Tuple[MeasBasis, ...]
 
-DEFAULT_PREP_BASIS: PrepBasis = "Pauli"
+DEFAULT_PREP_BASIS: PrepBasis = "SIC"
 PAULI_OPS: MeasBases = ("Z", "X", "Y")
 
 
