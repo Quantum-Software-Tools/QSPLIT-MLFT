@@ -58,12 +58,7 @@ def get_fidelities(
 
     # cut the circuit, and perform fragment tomography to build fragment models
     fragments = cm.cut_circuit(circuit, cuts)
-    num_variants = sum(
-        4 ** len(fragment.quantum_inputs) * 3 ** len(fragment.quantum_outputs)
-        for fragment in fragments.values()
-    )
-    repetitions_per_variant = repetitions // num_variants
-    tomo_data = cm.perform_fragment_tomography(fragments, repetitions=repetitions_per_variant)
+    tomo_data = cm.perform_fragment_tomography(fragments, repetitions=repetitions)
     direct_models = cm.build_fragment_models(tomo_data)
     likely_models = cm.corrected_fragment_models(direct_models)
 
@@ -83,7 +78,7 @@ def get_fidelities(
 
 
 if __name__ == "__main__":
-    num_qubits = 16
+    num_qubits = 12
     num_clusters = 2
     repetitions = 10**6
 

@@ -228,8 +228,16 @@ def perform_fragment_tomography(
     repetitions: Optional[int] = None,
 ) -> Dict[str, FragmentTomographyData]:
     """Perform fragment tomography on a collection of fragments."""
+    num_variants = sum(
+        len(prep_basis) ** len(fragment.quantum_inputs)
+        * len(PAULI_OPS) ** len(fragment.quantum_outputs)
+        for fragment in fragments.values()
+    )
+    repetitions_per_variant = repetitions // num_variants
     return {
-        fragment_key: perform_single_fragment_tomography(fragment, prep_basis, repetitions)
+        fragment_key: perform_single_fragment_tomography(
+            fragment, prep_basis, repetitions_per_variant
+        )
         for fragment_key, fragment in fragments.items()
     }
 
@@ -237,7 +245,7 @@ def perform_fragment_tomography(
 def perform_single_fragment_tomography(
     fragment: Fragment,
     prep_basis: PrepBasis = DEFAULT_PREP_BASIS,
-    repetitions: Optional[int] = None,
+    repetitions_per_variant: Optional[int] = None,
     seed: cirq.RANDOM_STATE_OR_SEED_LIKE = None,
 ) -> FragmentTomographyData:
     """
@@ -259,7 +267,7 @@ def perform_single_fragment_tomography(
     circuit_outputs = fragment.circuit_outputs
     qubit_order = circuit_outputs + quantum_outputs
     num_qubits = len(qubit_order)
-    if repetitions:
+    if repetitions_per_variant:
         measurement = cirq.measure_each(*qubit_order)
         simulator = cirq.Simulator(seed=seed)
 
@@ -267,7 +275,7 @@ def perform_single_fragment_tomography(
     for prep_states in itertools.product(get_prep_states(prep_basis), repeat=len(quantum_inputs)):
         circuit_with_prep = prep_state_ops(prep_states, quantum_inputs) + fragment.circuit
 
-        if not repetitions:
+        if not repetitions_per_variant:
             # construct the state at the end of the fragment when preparing the prep_states
             prep_fragment_state = cirq.final_state_vector(
                 circuit_with_prep, qubit_order=qubit_order
@@ -277,7 +285,7 @@ def perform_single_fragment_tomography(
             # construct sub-circuit to measure in the 'meas_bases'
             meas_ops = meas_basis_ops(meas_bases, quantum_outputs)
 
-            if not repetitions:
+            if not repetitions_per_variant:
                 # get exact probability distribution over measurement outcomes
                 final_state = cirq.final_state_vector(
                     cirq.Circuit(meas_ops),
@@ -295,7 +303,7 @@ def perform_single_fragment_tomography(
 
             else:  # simulate sampling from the true probability distribution
                 full_circuit = circuit_with_prep + meas_ops + measurement
-                results = simulator.run(full_circuit, repetitions=repetitions)
+                results = simulator.run(full_circuit, repetitions=repetitions_per_variant)
                 outcome_counter = results.multi_measurement_histogram(keys=qubit_order)
 
                 # collect measurement outcomes into the tomography_data object
@@ -305,7 +313,7 @@ def perform_single_fragment_tomography(
                     # Record the fraction of times we observed this measurement outcome with the
                     # given prep_states/meas_bases.
                     conditions = (prep_states, meas_bases, quantum_outcome)
-                    tomography_data[circuit_outcome][conditions] = counts / repetitions
+                    tomography_data[circuit_outcome][conditions] = counts / repetitions_per_variant
 
     # identify the cut indices at quantum inputs/outputs and return a FragmentTomographyData object
     return FragmentTomographyData(fragment, tomography_data, prep_basis)
