@@ -11,8 +11,8 @@ import cirq
 import numpy as np
 import numpy.typing as npt
 
-import circuit_ansatz
-import cutting_methods as cm
+from qsplit_mlft import circuit_ansatz
+from qsplit_mlft import cutting_methods as cm
 
 
 def get_fidelity(

@@ -8,10 +8,9 @@ import os
 
 import numpy as np
 
-import circuit_ansatz
-import compute_fidelities
+from qsplit_mlft import circuit_ansatz, compute_fidelities
 
-data_dir = "./data/"
+data_dir = "../data/"
 num_trials = 100  # number of random circuit variants to average over
 
 # fragment numbers to use
