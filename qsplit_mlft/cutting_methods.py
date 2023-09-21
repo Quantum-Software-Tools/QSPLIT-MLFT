@@ -577,26 +577,13 @@ def corrected_single_fragment_model(fragment_model: FragmentModel) -> FragmentMo
         block_eig_vals, block_eig_vecs = np.linalg.eigh(block_choi_matrix)
         eigenvalues[idx] = block_eig_vals
         eigenvectors[idx] = block_eig_vecs
-
-    # Eliminate negative eigenvalues one by one in order of decreasing magnitude, and distribute
-    # their values among all other eigenvalues.
-    eigenvalue_order = np.argsort(eigenvalues.ravel())
-    sorted_eigenvalues = eigenvalues.ravel()[eigenvalue_order]
-    for idx, val in enumerate(sorted_eigenvalues):
-        if val >= 0:
-            break
-        sorted_eigenvalues[idx] = 0
-        num_vals_remaining = eigenvalues.size - idx - 1
-        sorted_eigenvalues[idx + 1 :] += val / num_vals_remaining
-    inverse_sort = np.arange(eigenvalues.size)[np.argsort(eigenvalue_order)]
-    corrected_eigenvalues = sorted_eigenvalues[inverse_sort]
-    corrected_eigenvalues.shape = eigenvalues.shape
+    eigenvalues = correct_probability_distribution(eigenvalues)
 
     # Iterate over all blocks of the Choi matrix, and reconstruct them from the corrected
     # eigenvalues and their corresponding eigenvectors.
     corrected_data = {}
     for (circuit_outcome, block_tensor), block_eig_vals, block_eig_vecs in zip(
-        fragment_model.blocks(), corrected_eigenvalues, eigenvectors
+        fragment_model.blocks(), eigenvalues, eigenvectors
     ):
         corrected_block_choi_matrix = sum(
             val * np.outer(vec, vec.conj()) for val, vec in zip(block_eig_vals, block_eig_vecs.T)
@@ -612,6 +599,26 @@ def corrected_single_fragment_model(fragment_model: FragmentModel) -> FragmentMo
         )
 
     return FragmentModel(fragment_model.fragment, corrected_data)
+
+
+def correct_probability_distribution(probabilities: npt.NDArray[float]) -> npt.NDArray[float]:
+    """Apply maximum-likelihood corrections to a classical probability distribution.
+
+    Eliminate negative probabilities one by one in order of decreasing magnitude, and distribute
+    their values among all other probabilities.  Method taken from arXiv:1106.5458.
+    """
+    eigenvalue_order = np.argsort(probabilities.ravel())
+    sorted_probabilities = probabilities.ravel()[eigenvalue_order]
+    for idx, val in enumerate(sorted_probabilities):
+        if val >= 0:
+            break
+        sorted_probabilities[idx] = 0
+        num_vals_remaining = probabilities.size - idx - 1
+        sorted_probabilities[idx + 1 :] += val / num_vals_remaining
+    inverse_sort = np.arange(probabilities.size)[np.argsort(eigenvalue_order)]
+    corrected_probabilities = sorted_probabilities[inverse_sort]
+    corrected_probabilities.shape = probabilities.shape
+    return corrected_probabilities
 
 
 ####################################################################################################
