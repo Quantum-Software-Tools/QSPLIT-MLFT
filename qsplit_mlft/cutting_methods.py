@@ -607,15 +607,15 @@ def correct_probability_distribution(probabilities: npt.NDArray[float]) -> npt.N
     Eliminate negative probabilities one by one in order of decreasing magnitude, and distribute
     their values among all other probabilities.  Method taken from arXiv:1106.5458.
     """
-    eigenvalue_order = np.argsort(probabilities.ravel())
-    sorted_probabilities = probabilities.ravel()[eigenvalue_order]
+    prob_order = np.argsort(probabilities.ravel())
+    sorted_probabilities = probabilities.ravel()[prob_order]
     for idx, val in enumerate(sorted_probabilities):
         if val >= 0:
             break
         sorted_probabilities[idx] = 0
         num_vals_remaining = probabilities.size - idx - 1
         sorted_probabilities[idx + 1 :] += val / num_vals_remaining
-    inverse_sort = np.arange(probabilities.size)[np.argsort(eigenvalue_order)]
+    inverse_sort = np.arange(probabilities.size)[np.argsort(prob_order)]
     corrected_probabilities = sorted_probabilities[inverse_sort]
     corrected_probabilities.shape = probabilities.shape
     return corrected_probabilities
