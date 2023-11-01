@@ -10,35 +10,31 @@ import numpy as np
 
 from qsplit_mlft import circuit_ansatz, compute_fidelities
 
-data_dir = "../data/"
-num_trials = 100  # number of random circuit variants to average over
-
-# fragment numbers to use
-frag_nums = [2, 3, 4]
-
-# number of qubits and repetitions for fixed-shot trials
-qubit_nums = range(6, 21)
-log10_repetitions_default = 6
-
-# number of qubits and repetitions for fixed-qubit trials
-log10_shot_nums = np.arange(4.5, 7.3, 0.25)
-qubit_num_default = 18
-
-if not os.path.isdir(data_dir):
-    os.makedirs(data_dir)
-
-
 ##########################################################################################
 # data collection methods
 
 
 def collect_data(
-    num_qubits: int,
     num_frags: int,
-    log10_repetitions: float,
-    num_trials: int = num_trials,
+    num_qubits: int = 18,
+    log10_repetitions: float = 6,
+    num_trials: int = 100,
+    data_dir: str = "./data",
 ) -> None:
-    """Collect simulation data for the given parameters."""
+    """Collect simulation data for the given parameters.
+
+    Args:
+        num_frags: number of circuit fragments in the clustered random unitary circuit
+        num_qubits: total number of qubits in the circuit
+        log10_repetitions: total number of repetitions (shots) to sample
+        num_trials: number of random circuit instances to average over
+        data_dir: directory in which to save simulation data
+    """
+    if not os.path.isdir(data_dir):
+        os.makedirs(data_dir)
+
+    print(num_frags, num_qubits, log10_repetitions, num_trials, data_dir)
+    return
 
     if num_qubits < 2 * num_frags:
         print("skipping because num_qubits < 2 * num_frags")
@@ -77,16 +73,20 @@ def collect_data(
 
 
 ##########################################################################################
-# collect data
+if __name__ == "__main__":
+    # collect data in the QSPLIT-MLFT paper
 
-# simulate circuits with different qubit numbers
-for qubit_num in qubit_nums:
-    for frag_num in frag_nums:
-        print(f"frag_num : {frag_num}, qubit_num : {qubit_num}")
-        collect_data(qubit_num, frag_num, log10_repetitions_default)
+    # fragment numbers to simulate
+    frag_nums = [2, 3, 4]
 
-# simulate circuits with different shot numbers
-for log10_repetitions in log10_shot_nums:
-    for frag_num in frag_nums:
-        print(f"frag_num: {frag_num}, log10_repetitions : {log10_repetitions}")
-        collect_data(qubit_num_default, frag_num, log10_repetitions)
+    # simulate circuits with different qubit numbers
+    for qubit_num in range(8, 21):
+        for frag_num in frag_nums:
+            print(f"frag_num : {frag_num}, qubit_num : {qubit_num}")
+            collect_data(frag_num, num_qubits=qubit_num)
+
+    # simulate circuits with different shot numbers
+    for log10_repetitions in np.arange(4.5, 7.3, 0.25):
+        for frag_num in frag_nums:
+            print(f"frag_num: {frag_num}, log10_repetitions : {log10_repetitions}")
+            collect_data(frag_num, log10_repetitions=log10_repetitions)
